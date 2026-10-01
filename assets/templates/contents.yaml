@@ -1,0 +1,58 @@
+# The table of contents for {{TITLE}}.
+#
+# This file decides what the website publishes and in what order. Every build
+# script reads it, so a document is listed here once and nowhere else.
+#
+#   checked: true    proofread. The page is built and appears in the sidebar.
+#   checked: false   not proofread yet. Kept off the website entirely: no page
+#                    is built and no link to it exists. The PDF is still built
+#                    and still goes in the archive, so you can proofread from
+#                    it, and md2tex.py, buildtex.py and figures_audit.py all
+#                    still cover it.
+#
+# To publish a document, change its one word to true and run mkweb.py again.
+# Adding a document means adding it here. The audit reports any .md file that
+# this list does not mention, and any entry with no file behind it.
+#
+# Paths are relative to the project root. Lectures are in src/; a course-year
+# folder such as 2026/ holds one offering's homework and exams. On the
+# website the src/ prefix is dropped, so src/03_Second_Law.md is published
+# as 03_Second_Law.html and 2026/homework01_solution.md as
+# 2026/homework01_solution.html.
+
+# Settings for the project as a whole. These are the only place the course's
+# name appears: every script reads them rather than spelling a name out.
+#
+#   title         website title and the heading of its front page
+#   project       the project name Sphinx records
+#   short         the short course name, used in a PDF's running foot when
+#                 the document's frontmatter gives none
+#   author, copyright   shown in the website footer
+#   intro         the paragraph under the front page heading
+#   latex_class   the .cls file, without .cls, that every PDF uses
+#   archive       package.py writes <archive>.zip
+#   support       any extra files package.py should ship (data, helpers)
+#   language      the documents' language, for the website and screen readers
+#   show_source   the website's "Show Source" link, and the copy of the
+#                 Markdown in _sources/ it points at. false removes both.
+site:
+  title: "{{TITLE}}"
+  project: "{{PROJECT}}"
+  short: "{{SHORT}}"
+  author: "{{AUTHOR}}"
+  copyright: "{{COPYRIGHT}}"
+  intro: >-
+    Accessible transcriptions of the {{SHORT}} course notes. Every figure
+    carries a written description, and every equation is real text rather
+    than a picture.
+  latex_class: {{CLASS}}
+  archive: {{ARCHIVE}}
+  support: []
+  language: en
+  show_source: false
+
+parts:
+  - title: Lectures
+    documents:
+      - path: src/01_Example.md
+        checked: false

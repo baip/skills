@@ -1,0 +1,62 @@
+# What git tracks in this project, by way of what it does not.
+#
+# The Markdown, the class file, figures/*.svg and the scripts are sources.
+# Everything else is produced by running them, and is left out so that a
+# clone is the source and a checkout never carries a stale build.
+#
+# figures/*.svg is written by the drawing scripts but is tracked: it is what
+# the documents reference and what the archive ships.
+
+# ---------------------------------------------------------------- the PDFs
+# Every document keeps its generated LaTeX, LaTeX's scratch files and its PDF
+# beside its Markdown: in src/ for the lectures, in a course-year folder such
+# as 2026/ for homework and exams. Those are named here rather than the
+# folders, since the folders also hold the sources. buildtex.py also writes
+# a PDF beside each figure's SVG.
+src/*.tex
+src/*.pdf
+20[0-9][0-9]/*.tex
+20[0-9][0-9]/*.pdf
+figures/*.pdf
+
+# LaTeX's scratch files, and the MathML copy the tagging code writes beside
+# each PDF
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*-luamml-mathml.html
+
+# ------------------------------------------------------------- the website
+/web/
+/site/
+
+# ------------------------------------------------------------- the archive
+/{{ARCHIVE}}.zip
+
+# --------------------------------------------------- the originals and scratch
+# originals/ holds the files the transcription is made from, and work/ the
+# page images rendered from them. No script reads either. Delete the
+# /originals/ line to keep the originals in the repository: adding them later
+# is one commit, removing them later means rewriting history.
+/originals/
+/work/
+
+# ------------------------------------------------------------ dependencies
+/node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ------------------------------------------------------- editors and the OS
+.DS_Store
+._*
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
