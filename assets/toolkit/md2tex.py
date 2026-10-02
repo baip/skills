@@ -823,6 +823,10 @@ def _strong_math(n):
         # electric displacement D or the coefficient matrix A. Bold running
         # further than that is emphasis.
         body = plain_string(n["c"])
+        if body.lower() in NOT_A_VARIABLE:
+            # **on**, **in**, **is**: a short word in bold is emphasis. A
+            # single bold letter, such as the vector a, is still a symbol.
+            return len(body) == 1
         return len(body) <= 2 and body.isalpha()
     return False
 
