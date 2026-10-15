@@ -1,4 +1,35 @@
-/dist/
+# One folder per skill. Track each skill's sources and leave out what
+# running or packaging them produces.
+
+# ----------------------------------------------------------- packaged skills
+# package.py writes each skill's bundle to <skill>/dist/.
+dist/
+*.skill
+
+# ----------------------------------------------------------- funding-monitor
+# The repository holds the shareable skill. A personal profile, scan state,
+# scan output and any local secrets stay on the machine that runs it.
+funding-monitor/config/profile.toml
+funding-monitor/out/
+funding-monitor-scan-*.json
+funding-scan-*.json
+funding-scan-*.md
+state.json
+.env
+*.env
+secrets.toml
+
+# -------------------------------------------------------------- Python
 __pycache__/
 *.py[cod]
+.venv/
+venv/
+
+# ------------------------------------------------------- editors and the OS
 .DS_Store
+._*
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
