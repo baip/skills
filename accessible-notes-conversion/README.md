@@ -1,12 +1,12 @@
 # accessible-notes-conversion
 
-The source of the `accessible-notes-conversion` skill, kept on its own
-branch, `skill`, of the ChE 621 notes repository. The branch shares no
-history or files with `main`. It is checked out as a git worktree in the
-`skill/` folder of the main working copy, which `main` ignores:
+The source of the `accessible-notes-conversion` skill, one folder of the
+`skills` repository. A notes project that uses it, such as the ChE 621
+notes, keeps a clone of `skills` beside its own working copy and links this
+folder in as `skill/`, which the project ignores:
 
 ```
-git worktree add skill skill        # once, from the main working copy
+ln -s ../skills/accessible-notes-conversion skill   # once, from the project's working copy
 ```
 
 ## What is here
@@ -25,16 +25,18 @@ which packages every skill in the repository.
 
 ## Making a change
 
-1. Edit here, in `skill/`, and commit on this branch.
-2. Try it in the notes project. From the main working copy:
+1. Edit here (or through the project's `skill/` link) and commit in the
+   `skills` repository.
+2. Try it in the notes project. From the project's working copy:
 
    ```
    python3 skill/scripts/init_project.py . --update-toolkit
    ```
 
    This copies the build scripts into the project. Build and check as
-   usual, and commit the result on `main`, naming the skill commit it
-   came from (`git -C skill log -1 --format=%h`).
+   usual, and commit the result in the project, naming the skill commit
+   it came from (`git -C skill log -1 --format=%h -- .`, which leaves out
+   commits that touch only the repository's other skills).
 3. Package and install:
 
    ```
