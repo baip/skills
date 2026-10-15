@@ -2,7 +2,7 @@
 # running or packaging them produces.
 
 # ----------------------------------------------------------- packaged skills
-# package.py writes each skill's bundle to <skill>/dist/.
+# package.py writes every skill's bundle to dist/ at the repository root.
 dist/
 *.skill
 

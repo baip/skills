@@ -18,10 +18,10 @@ git worktree add skill skill        # once, from the main working copy
 | `scripts/` | tools run from the skill: `init_project.py`, `render_pages.py`, `contact_sheet.py`, `notation_lint.py` |
 | `assets/toolkit/` | the build scripts and LaTeX class a project gets |
 | `assets/templates/` | `contents.yaml`, the example lecture and its drawing script, `.gitignore`, `package.json` |
-| `package.py` | builds the installable `.skill` file |
 
-`README.md`, `package.py`, `.gitignore` and `dist/` are not part of the
-skill and are left out of the package.
+`README.md` is not part of the skill and is left out of the package. The
+installable `.skill` file is built by `package.py` at the repository root,
+which packages every skill in the repository.
 
 ## Making a change
 
@@ -38,7 +38,7 @@ skill and are left out of the package.
 3. Package and install:
 
    ```
-   python3 package.py               # writes dist/accessible-notes-conversion.skill
+   python3 package.py accessible-notes-conversion   # from the repository root; writes dist/accessible-notes-conversion.skill
    ```
 
    Open the `.skill` file in the Claude app and save it to replace the
