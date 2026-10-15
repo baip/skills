@@ -1,0 +1,446 @@
+# funding-monitor profile TEMPLATE
+# The setup conversation (SKILL.md, Setup mode) fills this in. You can also edit it by hand.
+# Keep your filled-in copy at ~/.config/funding-monitor/profile.toml, or bundle it into a
+# personal copy of the skill as config/profile.toml.
+# API keys never go in this file. Put them in environment variables or ~/.config/funding-monitor/.env
+
+[meta]
+is_template = true                 # setup sets this to false
+owner = ""                         # e.g. "Jane Doe lab, Dept. of Chemistry"
+institution = ""                   # e.g. "University of X"
+applicant_type = ""                # e.g. "public institution of higher education"
+career_stage = ""                  # e.g. "assistant professor" (affects CAREER, YIP, early-career calls)
+country = "US"
+contact = ""                       # optional, used only in the HTTP User-Agent if you add it
+
+[email_sweep]
+# Optional: Gmail or Outlook labels/folders where the user files funding mail, searched each sweep.
+labels = []
+
+[schedule]
+scan_every = "weekly"              # how often you intend to run a scan (cron, scheduled task, or by hand)
+window_days = 8                    # look-back window per scan; slightly longer than the cadence
+email_sweep = "each scan, through an email connector if one is available"
+
+[fetching]
+# scan.py honors robots.txt by default. Set false to ignore it for every channel, or set
+# ignore_robots = true on individual channels. This is the user's decision, never Claude's.
+# Overrides are logged in each digest. Check the site's terms of use before overriding.
+respect_robots = true
+
+# Separate Grants.gov / Simpler queries. One term per query works better than OR strings.
+[queries]
+api = []
+
+# Scoring. Case-insensitive substring match. Title hits count double.
+# tier_a: core expertise. tier_b: adjacent or collaborator-led. tier_c: programs and mechanisms.
+[keywords]
+tier_a = []
+tier_b = []
+tier_c = []
+weights = { tier_a = 3, tier_b = 2, tier_c = 1 }
+
+[agencies]
+boost = []                         # Grants.gov agency code prefixes, e.g. ["NSF", "PAMS", "DOE", "DOD"]
+boost_points = 1
+neutral = []                       # no boost, no penalty, e.g. ["HHS-NIH", "NASA"]
+other_penalty = 3                  # applied to Grants.gov items from agencies in neither list
+
+[exclude]
+title_terms = ["sbir", "sttr", "small business innovation", "k-12"]
+# Grants.gov applicant type codes you can apply under. 06 public higher ed, 20 private higher ed,
+# 12 nonprofit 501(c)(3), 25 "others, see text", 99 unrestricted. Leave empty to skip this check.
+eligible_codes = ["06", "20", "25", "99"]
+penalty = 5
+
+[thresholds]
+strong_min_score = 6
+strong_min_distinct_terms = 2
+possible_min_score = 3
+
+# ---------------------------------------------------------------------------------------------
+# Channels. means: api | rss | sitemap | web | browser | email | alert | manual
+#   api, rss, sitemap, web, browser -> fetched by scan.py
+#     (handler = grants_gov | simpler | sam | rss | sitemap | web | browser)
+#   browser needs the optional Playwright package. Without it the channel becomes a manual reminder.
+#   email, alert   -> read by Claude during the email sweep (list the sender addresses)
+#   manual         -> no automation possible; listed in the plan as a reminder
+# signup: optional link where the user subscribes (email channels). See references/email-lists.md.
+# frequency: "each scan" | "daily" | "weekly" | "biweekly" | "monthly" (with --state, a channel is
+#   skipped until it is due). For email and alert channels it describes delivery.
+# ---------------------------------------------------------------------------------------------
+
+[[channel]]
+id = "grants-gov"
+name = "Grants.gov"
+covers = "Federal grants and cooperative agreements (NSF, DOE, DoD assistance, NIH, NASA, and others)"
+means = "api"
+handler = "grants_gov"
+frequency = "each scan"
+enabled = true
+
+[[channel]]
+id = "nsf-announcements"
+name = "NSF program announcements feed"
+covers = "New NSF solicitations and program descriptions"
+means = "rss"
+handler = "rss"
+url = "https://www.nsf.gov/rss/rss_www_funding_pgm_annc_inf.xml"
+agency = "U.S. National Science Foundation"
+agency_code = "NSF"
+frequency = "each scan"
+enabled = true
+
+[[channel]]
+id = "nsf-upcoming"
+name = "NSF upcoming due dates feed"
+covers = "NSF deadlines in the next 30 days"
+means = "rss"
+handler = "rss"
+url = "https://www.nsf.gov/rss/rss_www_funding_upcoming.xml"
+agency = "U.S. National Science Foundation"
+agency_code = "NSF"
+doc_type = "upcoming due date"
+frequency = "each scan"
+enabled = true
+
+[[channel]]
+id = "nih-guide-rss"
+name = "NIH Guide funding opportunities feed"
+covers = "NIH funding opportunities and notices"
+means = "rss"
+handler = "rss"
+url = "https://grants.nih.gov/grants/guide/newsfeed/fundingopps.xml"
+agency = "National Institutes of Health"
+agency_code = "HHS-NIH"
+frequency = "each scan"
+enabled = false
+tags = ["biomedical"]
+
+[[channel]]
+id = "simpler"
+name = "Simpler.Grants.gov API"
+covers = "Same data as Grants.gov, with post-date filtering"
+means = "api"
+handler = "simpler"
+key_env = "SIMPLER_API_KEY"
+frequency = "each scan"
+enabled = false
+setup = "references/api-keys.md#simplergrantsgov"
+
+[[channel]]
+id = "sam-gov"
+name = "SAM.gov contract opportunities API"
+covers = "DoD and DARPA broad agency announcements, RFIs, special notices"
+means = "api"
+handler = "sam"
+key_env = "SAM_API_KEY"
+organizations = []                 # e.g. ["DEFENSE ADVANCED RESEARCH PROJECTS AGENCY", "OFFICE OF NAVAL RESEARCH"]
+ptypes = ["o", "k", "p", "r", "s"]
+max_requests_per_run = 4           # personal keys have a small daily quota
+frequency = "each scan"
+enabled = false
+tags = ["defense"]
+setup = "references/api-keys.md#samgov"
+
+[[channel]]
+id = "alert-simpler-saved-search"
+name = "Simpler.Grants.gov saved-search alerts"
+covers = "Posted and forecasted federal grants matching your saved searches"
+means = "alert"
+senders = []                       # fill in after the first alert arrives
+frequency = "provider digest"
+enabled = false
+setup = "references/api-keys.md#saved-search-alerts"
+
+[[channel]]
+id = "alert-sam-saved-search"
+name = "SAM.gov saved-search alerts"
+covers = "DoD and DARPA BAAs and RFIs matching your saved searches"
+means = "alert"
+senders = []
+frequency = "daily digest from SAM.gov"
+enabled = false
+tags = ["defense"]
+setup = "references/api-keys.md#saved-search-alerts"
+
+[[channel]]
+id = "email-nsf-update"
+name = "NSF Update"
+covers = "NSF Dear Colleague Letters, program changes, events"
+means = "email"
+senders = ["nsf-update@govdelivery.nsf.gov"]
+signup = "https://service.govdelivery.com/accounts/USNSF/subscriber/new?qsp=823"
+frequency = "as delivered (daily digest option)"
+enabled = false
+
+[[channel]]
+id = "email-nih-guide"
+name = "NIH Guide weekly table of contents"
+covers = "NIH policy notices and opportunities"
+means = "email"
+senders = ["GuideTOC@mail.nih.gov"]
+signup = "https://grants.nih.gov/funding/nih-guide-for-grants-and-contracts/subscribe"
+frequency = "weekly (Fridays)"
+enabled = false
+tags = ["biomedical"]
+
+[[channel]]
+id = "email-doe-science"
+name = "DOE Office of Science updates"
+covers = "Office of Science FOAs, town halls, awards"
+means = "email"
+senders = ["updates@info.science.doe.gov"]
+signup = "https://public.govdelivery.com/accounts/USDOEOS/subscriber/new"
+frequency = "as delivered"
+enabled = false
+tags = ["energy", "physical sciences"]
+
+[[channel]]
+id = "email-doe-cmei"
+name = "DOE Office of Critical Minerals and Energy Innovation (formerly EERE) lists"
+covers = "Applied energy, materials, manufacturing, and critical-minerals NOFOs and news"
+means = "email"
+senders = []                       # per-topic @service.govdelivery.com senders; record after first issues
+signup = "https://public.govdelivery.com/accounts/USEERE/subscriber/new"
+frequency = "as delivered"
+enabled = false
+tags = ["energy", "materials", "manufacturing"]
+
+[[channel]]
+id = "email-nist"
+name = "NIST updates"
+covers = "NIST grants, cooperative agreements, and program news"
+means = "email"
+senders = []
+signup = "https://public.govdelivery.com/accounts/USNIST/subscriber/new"
+frequency = "as delivered"
+enabled = false
+tags = ["materials", "manufacturing", "measurement"]
+
+[[channel]]
+id = "email-usda-nifa"
+name = "USDA NIFA updates"
+covers = "Agricultural and food research funding"
+means = "email"
+senders = []
+signup = "https://public.govdelivery.com/accounts/USDANIFA/subscriber/new"
+frequency = "as delivered"
+enabled = false
+tags = ["agriculture"]
+
+[[channel]]
+id = "email-arpa-h"
+name = "ARPA-H Vitals newsletter"
+covers = "ARPA-H program announcements and funding opportunities"
+means = "email"
+senders = []
+signup = "https://engage.arpa-h.gov/arpa-h-vitals-newsletter-sign-up"
+frequency = "as delivered"
+enabled = false
+tags = ["biomedical"]
+
+[[channel]]
+id = "email-darpaconnect"
+name = "DARPAConnect"
+covers = "DARPA outreach run by the Applied Research Institute (ARI): opportunity roundups, Mission Connect events, office hours, training"
+means = "email"
+senders = ["ecosystem@theari.us", "ERIS@theari.us"]
+signup = "https://www.darpaconnect.us/ (or email darpaconnect@darpa.mil)"
+frequency = "as delivered"
+enabled = false
+tags = ["defense"]
+
+[[channel]]
+id = "email-darpa-dso"
+name = "DARPA Defense Sciences Office (DSO) email list"
+covers = "DSO opportunities and events, sent by Strategic Analysis, Inc. (DARPA's outreach contractor)"
+means = "email"
+senders = ["dsonews@sainc.com"]
+signup = ""                        # no public sign-up page verified
+signup_hint = "ask DARPA outreach or your research office how to join the Defense Sciences Office list run by Strategic Analysis, Inc."
+frequency = "as delivered"
+enabled = false
+tags = ["defense"]
+
+[[channel]]
+id = "email-doe-hgeo"
+name = "DOE Hydrocarbons and Geothermal Energy Office (HGEO) list"
+covers = "HGEO funding opportunities and news, including geothermal and subsurface resources"
+means = "email"
+senders = ["HGEO@public.govdelivery.com"]
+signup = "https://public.govdelivery.com/accounts/USDOEOFE/subscriber/new"
+frequency = "as delivered"
+enabled = false
+tags = ["energy"]
+
+[[channel]]
+id = "email-arpa-e"
+name = "ARPA-E newsletter"
+covers = "ARPA-E program previews, workshops, requests for information, Summit news, and selections"
+means = "email"
+senders = []
+signup = ""
+signup_hint = "check the ARPA-E site footer and News pages for a newsletter form, or email ARPA-E and ask to be added. Expect a Mailchimp sender"
+frequency = "as delivered"
+enabled = false
+tags = ["energy"]
+
+[[channel]]
+id = "email-nasa-newsletters"
+name = "NASA research newsletters"
+covers = "Division funding roundups, flight opportunities, SBIR/STTR, prize competitions"
+means = "email"
+senders = []
+signup = "https://www.nasa.gov/nasa-newsletters/"
+frequency = "as delivered"
+enabled = false
+tags = ["space"]
+
+[[channel]]
+id = "email-nasa-smd"
+name = "NASA Science Mission Directorate (SMD) list and NSPIRES notifications"
+covers = "ROSES amendments, new program elements, due-date changes, industry days"
+means = "email"
+senders = ["smd@listsrv2.nasaprs.com"]
+signup = "https://nspires.nasaprs.com/ (account notification settings)"
+frequency = "as delivered"
+enabled = false
+tags = ["space"]
+
+[[channel]]
+id = "email-onr"
+name = "Office of Naval Research (ONR) announcements"
+covers = "Broad Agency Announcement updates, special program announcements, program officer news"
+means = "email"
+senders = []
+signup = ""
+signup_hint = "search onr.navy.mil for subscribe or newsletter, then ask the relevant ONR program officer to add you to their announcement list"
+frequency = "as delivered"
+enabled = false
+tags = ["defense"]
+
+[[channel]]
+id = "email-afosr"
+name = "Air Force Office of Scientific Research (AFOSR) announcements"
+covers = "Broad Agency Announcement amendments, Young Investigator Program reminders, program officer news"
+means = "email"
+senders = []
+signup = ""
+signup_hint = "search the AFOSR site for subscribe or newsletter, then ask the relevant AFOSR program officer or your research office"
+frequency = "as delivered"
+enabled = false
+tags = ["defense"]
+
+[[channel]]
+id = "email-aro-arl"
+name = "Army Research Office (ARO) and DEVCOM Army Research Laboratory (ARL) announcements"
+covers = "Broad Agency Announcement amendments, program officer news"
+means = "email"
+senders = []
+signup = ""
+signup_hint = "search the ARO and ARL sites for subscribe or newsletter, then ask the relevant ARO program manager or your research office"
+frequency = "as delivered"
+enabled = false
+tags = ["defense"]
+
+[[channel]]
+id = "web-doe-science"
+name = "DOE Office of Science funding page"
+covers = "Open Office of Science FOAs and national laboratory announcements (PDF links)"
+means = "web"
+handler = "web"
+url = "https://science.osti.gov/Funding-Opportunities"
+link_pattern = "/grants/pdf/(foas|lab-announcements)/"
+agency = "DOE Office of Science"
+frequency = "weekly"
+enabled = false
+tags = ["energy", "physical sciences"]
+
+[[channel]]
+id = "web-onr"
+name = "ONR current funding opportunities"
+covers = "Office of Naval Research BAAs, NOFOs, special program announcements"
+means = "web"
+handler = "web"
+url = "https://www.onr.navy.mil/work-with-us/funding-opportunities/announcements"
+link_pattern = "/work-with-us/funding-opportunities/[a-z0-9-]{25,}"
+agency = "Office of Naval Research"
+frequency = "weekly"
+enabled = false
+tags = ["defense"]
+
+[[channel]]
+id = "darpa-sitemap"
+name = "DARPA opportunities (via sitemap)"
+covers = "DARPA program solicitations, office-wide BAAs, and RFIs. The listing page needs JavaScript, so the XML sitemap is read instead."
+means = "sitemap"
+handler = "sitemap"
+url = "https://www.darpa.mil/sitemap.xml"
+loc_pattern = '/work-with-us/opportunities/[^/]+$'
+title_suffix = "| DARPA"
+number_from_slug = true
+agency = "DARPA"
+agency_code = "DOD-DARPA"
+frequency = "weekly"
+enabled = false
+tags = ["defense"]
+
+[[channel]]
+id = "darpa-rss"
+name = "DARPA opportunities RSS feed"
+covers = "Latest 10 DARPA opportunities with office and summary. Links point to the general opportunities page and items carry no numbers or deadlines, so darpa-sitemap is richer. Enable one or the other."
+means = "rss"
+handler = "rss"
+url = "https://www.darpa.mil/rss/opportunities.xml"
+agency = "DARPA"
+agency_code = "DOD-DARPA"
+frequency = "each scan"
+enabled = false
+tags = ["defense"]
+
+[[channel]]
+id = "doe-exchange"
+name = "DOE Funding Opportunity Exchange"
+covers = "DOE applied-office NOFOs, lab calls, notices of intent, RFIs, and teaming partner lists (EERE/CMEI, ARPA-E, and others moved here from the old eXCHANGE sites)"
+means = "browser"
+handler = "browser"
+url = "https://exchange.energy.gov/Default.aspx"
+row_regex = '^\t?(?P<number>[A-Z]{2,4}-[A-Z0-9-]{4,})\t(?P<title>[^\t\n]+)\t(?P<agency>[A-Z][A-Z0-9&/ ]{1,15})[ \t]*$'
+agency_code = "DOE"
+doc_type = "Exchange announcement"
+frequency = "weekly"
+enabled = false
+tags = ["energy", "materials", "manufacturing"]
+
+# ----- Institution-specific channels: setup fills these in -----
+
+[[channel]]
+id = "inst-limited-submissions"
+name = "Institutional limited submissions"
+covers = "Programs that cap applications per institution, with internal deadlines"
+means = "web"
+handler = "web"
+url = ""
+link_pattern = "."
+frequency = "weekly"
+enabled = false
+
+[[channel]]
+id = "inst-research-office"
+name = "Research office funding newsletter"
+covers = "Curated federal and private opportunities from your research office"
+means = "email"
+senders = []
+signup = ""                        # setup finds the institution's sign-up page
+frequency = "as delivered"
+enabled = false
+
+[[channel]]
+id = "inst-foundation-relations"
+name = "Foundation or corporate relations"
+covers = "Private foundation calls and recurring foundation limited submissions"
+means = "email"
+senders = []
+frequency = "as delivered"
+enabled = false
