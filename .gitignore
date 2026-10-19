@@ -33,3 +33,7 @@ Thumbs.db
 *~
 .idea/
 .vscode/
+
+# ----------------------------------------------------------- skill evaluations
+# skill-creator test runs (outputs, timings, review pages)
+*-workspace/
