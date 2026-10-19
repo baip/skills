@@ -10,6 +10,7 @@ app, Claude Code and other hosts that read `SKILL.md`.
 |---|---|---|
 | [`accessible-notes-conversion`](accessible-notes-conversion/) | Converts handwritten, typed or OneNote-exported course notes, homework solutions and exams into accessible Markdown that builds a tagged PDF (PDF/UA-1) and a website (WCAG 2.1 AA), with figures redrawn as described SVG and equations typeset with a spoken form. | Python 3.10+, pandoc 3, TeX Live 2024+ with LuaLaTeX, and, for the website, Sphinx, MathJax 3 and Playwright. See its [README](accessible-notes-conversion/README.md). |
 | [`funding-monitor`](funding-monitor/) | Monitors research funding announcements for a US academic researcher: builds a research-fit profile, scans Grants.gov, NSF and NIH feeds, optional Simpler.Grants.gov and SAM.gov APIs, agency and institutional web pages and funding newsletters, and writes a ranked digest with deadlines. | Python 3.11+ and outbound HTTPS. Optional API keys, Playwright for pages built by JavaScript, and an email connector for newsletters. |
+| [`zotero-llm-wiki`](zotero-llm-wiki/) | Sets up an LLM-maintained research wiki whose sources stay in the user's Zotero library (read-only), with source, concept, entity and topic pages, provenance fingerprints that detect Zotero changes, a review queue, lint and claim audits; also upgrades the tools of an existing wiki. | Zotero 7+ with the local API on, Python 3.9+ (standard library), macOS or Linux (Windows via WSL), poppler to view PDF pages; optional Better BibTeX, git and Obsidian. |
 
 ## Installing a skill
 
