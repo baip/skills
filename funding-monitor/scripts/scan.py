@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """funding-monitor: scan research funding channels, score against a profile, write a digest.
 
-Standard library only. Python 3.11+ (tomllib).
+Standard library only on Python 3.11+. On Python 3.8 to 3.10, install tomli (the same TOML
+parser, packaged separately) or run with a newer Python through uv.
 
 Subcommands
   init   copy the profile template to a new profile file
@@ -17,12 +18,18 @@ API keys come from environment variables named in the profile (never from the pr
   SAM_API_KEY, SIMPLER_API_KEY by default. A ~/.config/funding-monitor/.env file with
   KEY=value lines is also read if present.
 
+Exit status
+  0  finished (scan: <out-dir>/funding-scan-<date>.md and .json written)
+  1  error, for example no profile found or a file that could not be written
+  2  no channel could be reached, usually a sandbox without network (see references/agents.md)
+  3  scan refused: the profile still has is_template = true
+
 Examples
   python3 scan.py init --out ~/.config/funding-monitor/profile.toml
   python3 scan.py plan
   python3 scan.py check
   python3 scan.py scan --since-days 8 --details --out-dir ./out
-  python3 scan.py scan --state ~/.config/funding-monitor/state.json --details --out-dir ./out
+  cd ~/funding-monitor && python3 <skill-dir>/scripts/scan.py scan --details --state ./state.json --out-dir ./out
 """
 from __future__ import annotations
 
@@ -45,9 +52,17 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 try:
-    import tomllib
+    import tomllib  # Python 3.11+
 except ModuleNotFoundError:
-    sys.exit("Python 3.11+ is required (tomllib).")
+    try:
+        import tomli as tomllib  # the same parser, packaged for Python 3.8 to 3.10
+    except ModuleNotFoundError:
+        sys.exit(
+            "funding-monitor needs a TOML parser: Python 3.11+ has one built in (tomllib).\n"
+            f"This is Python {sys.version.split()[0]}. Either install the backport for this Python:\n"
+            "    python3 -m pip install --user tomli\n"
+            "or run the script with a newer Python, for example through uv:\n"
+            f"    uv run --python 3.11 {os.path.abspath(__file__)} ...")
 
 HERE = Path(__file__).resolve().parent
 SKILL_DIR = HERE.parent
@@ -91,8 +106,6 @@ def find_profile(explicit: Path | None) -> Path:
 def load_profile(path: Path) -> dict:
     prof = tomllib.loads(path.read_text())
     prof.setdefault("channel", [])
-    if prof.get("meta", {}).get("is_template"):
-        print(f"WARNING: {path} is the unedited template. Run setup first.", file=sys.stderr)
     return prof
 
 
@@ -153,6 +166,12 @@ def load_dotenv() -> None:
 
 
 # ------------------------------------------------------------------ http helpers
+# A blocked network should cost seconds, not minutes. Retries with back-off happen only once
+# something has succeeded in this run. A host that fails to connect is skipped for the rest of
+# the run, and after three different hosts fail with nothing reached, every request fails fast.
+_NET = {"any_success": False, "down_hosts": set()}
+
+
 def _request(url: str, data: dict | None = None, headers: dict | None = None) -> bytes:
     hdrs = {"User-Agent": UA}
     body = None
@@ -160,19 +179,32 @@ def _request(url: str, data: dict | None = None, headers: dict | None = None) ->
         body = json.dumps(data).encode()
         hdrs["Content-Type"] = "application/json"
     hdrs.update(headers or {})
+    host = urllib.parse.urlsplit(url).netloc
+    if host in _NET["down_hosts"]:
+        raise urllib.error.URLError(f"{host} could not be reached earlier in this run")
+    if not _NET["any_success"] and len(_NET["down_hosts"]) >= 3:
+        raise urllib.error.URLError("network unreachable: no host could be reached in this run")
     req = urllib.request.Request(url, data=body, headers=hdrs, method="POST" if body else "GET")
     last = None
     for attempt in range(3):
         try:
             with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-                return r.read()
+                out = r.read()
+            _NET["any_success"] = True
+            return out
         except urllib.error.HTTPError as e:
+            _NET["any_success"] = True  # the server answered, so the network works
             if e.code in (400, 401, 403, 404, 422, 429):
                 raise
             last = e
-        except (urllib.error.URLError, TimeoutError) as e:
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
             last = e
-        time.sleep(2 * (attempt + 1))
+            if not _NET["any_success"]:
+                break  # nothing has worked yet: likely a blocked network, so do not wait
+        if attempt < 2:
+            time.sleep(2 * (attempt + 1))
+    if not isinstance(last, urllib.error.HTTPError):
+        _NET["down_hosts"].add(host)
     raise last  # type: ignore[misc]
 
 
@@ -825,6 +857,7 @@ def cmd_credentials(prof: dict) -> int:
 
 def cmd_check(prof: dict, args) -> int:
     ctx = {"since_days": 30, "log": []}
+    failed = 0
     for ch in prof["channel"]:
         if args.channel and ch["id"] != args.channel:
             continue
@@ -843,6 +876,10 @@ def cmd_check(prof: dict, args) -> int:
         items = h(test, prof, ctx)
         msgs = "; ".join(ctx["log"][n0:])
         print(f"- {ch['id']}: {'OK' if items else 'CHECK'} ({len(items)} items) {msgs}")
+        failed += channel_failed(items, ctx["log"][n0:])
+    if failed and not _NET["any_success"]:
+        print(f"\nWARNING: {NETWORK_HINT}")
+        return 2
     return 0
 
 
@@ -863,6 +900,10 @@ def render(items: list[dict], ctx: dict, prof: dict, args, manual: list[dict]) -
     lines = [f"# Funding scan, {dt.date.today().isoformat()}", "",
              f"Profile: {ctx['profile']}. Window: last {args.since_days} days. "
              f"State: {args.state or 'none (window-based, may repeat items)'}.", ""]
+    if ctx.get("network_down"):
+        lines += [f"**{NETWORK_HINT}**", ""]
+    elif ctx.get("failed_channels"):
+        lines += [f"**Channels that failed this run (see the run log):** {', '.join(ctx['failed_channels'])}.", ""]
     for key, label in [("strong", "Strong fit"), ("possible", "Possible fit"), ("low", "Low relevance"),
                        ("filtered", "Filtered out (audit these)")]:
         grp = sorted([r for r in items if r["bucket"] == key], key=lambda r: -r["score"])
@@ -944,10 +985,22 @@ def dedupe(items: list[dict]) -> list[dict]:
     return out
 
 
+_FAIL_RX = re.compile(r"failed: |HTTP \d{3}|unparseable feed")
+NETWORK_HINT = ("Every channel that needs the network failed. This usually means the agent's sandbox "
+                "blocks outbound connections, not that nothing is new. Allow network access for this "
+                "command (see references/agents.md) and run it again.")
+
+
+def channel_failed(items: list, new_log: list[str]) -> bool:
+    """A channel failed when it returned nothing and logged a fetch, HTTP or parse error."""
+    return not items and any(_FAIL_RX.search(m) for m in new_log)
+
+
 def cmd_scan(prof: dict, args) -> int:
     ctx = {"since_days": args.since_days, "log": [], "profile": str(args.profile_path)}
     state = load_state(args.state)
     items, manual = [], []
+    failed = []
     for ch in prof["channel"]:
         if not ch.get("enabled", True):
             continue
@@ -958,8 +1011,23 @@ def cmd_scan(prof: dict, args) -> int:
         if args.state and not due(ch, state):
             ctx["log"].append(f"{ch['id']}: not due (frequency {ch.get('frequency')})")
             continue
-        items += h(ch, prof, ctx)
-        state.setdefault("last_run", {})[ch["id"]] = dt.date.today().isoformat()
+        n0 = len(ctx["log"])
+        # With state, reach back to this channel's last run, so a run between scheduled scans
+        # (which makes the next scheduled scan skip the channel as not due) leaves no gap.
+        ctx["since_days"] = args.since_days
+        last = state.get("last_run", {}).get(ch["id"]) if args.state else None
+        if last:
+            gap = min((dt.date.today() - dt.date.fromisoformat(last)).days + 1, 60)
+            if gap > args.since_days:
+                ctx["since_days"] = gap
+                ctx["log"].append(f"{ch['id']}: window widened to {gap} days, back to its last run on {last}")
+        got = h(ch, prof, ctx)
+        ctx["since_days"] = args.since_days
+        items += got
+        if channel_failed(got, ctx["log"][n0:]):
+            failed.append(ch["id"])  # not marked as run, so it is retried next time
+        else:
+            state.setdefault("last_run", {})[ch["id"]] = dt.date.today().isoformat()
 
     deduped = dedupe(items)
     items = deduped
@@ -992,16 +1060,37 @@ def cmd_scan(prof: dict, args) -> int:
             if old and old != fp:
                 ctx["log"].append(f"{cid}: page content changed since last run")
             state["page_fingerprints"][cid] = fp
-        args.state.parent.mkdir(parents=True, exist_ok=True)
-        args.state.write_text(json.dumps(state, indent=1))
+
+    network_down = bool(failed) and not items and not _NET["any_success"]
+    ctx["failed_channels"] = failed
+    ctx["network_down"] = network_down
+    if failed:
+        ctx["log"].append(f"failed channels (retried next run): {', '.join(failed)}")
+    if network_down:
+        print(f"WARNING: {NETWORK_HINT}", file=sys.stderr)
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     stamp = dt.date.today().isoformat()
     (args.out_dir / f"funding-scan-{stamp}.md").write_text(render(items, ctx, prof, args, manual))
     (args.out_dir / f"funding-scan-{stamp}.json").write_text(json.dumps(items, indent=1, default=str))
+    # State is saved after the outputs, so a state path the sandbox cannot write still leaves a digest.
+    state_saved = None
+    if args.state:
+        try:
+            args.state.parent.mkdir(parents=True, exist_ok=True)
+            args.state.write_text(json.dumps(state, indent=1))
+            state_saved = True
+        except OSError as e:
+            state_saved = False
+            ctx["log"].append(f"state: could not be saved to {args.state} ({e}). Items will repeat next run.")
+            print(f"WARNING: state not saved to {args.state} ({e}). Use a state path the agent may write, "
+                  "for example ./state.json (see references/agents.md).", file=sys.stderr)
     counts = {b: sum(r["bucket"] == b for r in items) for b in ("strong", "possible", "low", "filtered")}
-    print(json.dumps({"out_dir": str(args.out_dir), "counts": counts, "log": ctx["log"]}, indent=1))
-    return 0
+    print(json.dumps({"out_dir": str(args.out_dir),
+                      "files": [f"funding-scan-{stamp}.md", f"funding-scan-{stamp}.json"],
+                      "counts": counts, "failed_channels": failed, "network_down": network_down,
+                      "state_saved": state_saved, "log": ctx["log"]}, indent=1))
+    return 2 if network_down else 0
 
 
 def cmd_init(args) -> int:
@@ -1044,6 +1133,10 @@ def main() -> int:
         return cmd_plan(prof, args)
     if args.cmd == "check":
         return cmd_check(prof, args)
+    if prof.get("meta", {}).get("is_template"):
+        print(f"{args.profile_path} still has is_template = true, so setup has not been finished. "
+              "Finish setup (references/setup.md) before scanning.", file=sys.stderr)
+        return 3
     if args.since_days is None:
         args.since_days = int(prof.get("schedule", {}).get("window_days", 8))
     return cmd_scan(prof, args)
