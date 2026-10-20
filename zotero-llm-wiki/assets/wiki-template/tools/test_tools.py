@@ -63,7 +63,7 @@ check("duplicate key is an error", any("duplicate" in e for e in fm("a: 1\na: 2"
 # ---- field validation ------------------------------------------------------------------------
 BASE = dict(type="source", title="T", authors=["Behler, J."], year=2021, venue="V", item_type="review",
             library="user:1", zotero_key="RKJEQMJ4", citekey="x", zotero_uri="zotero://select/library/items/RKJEQMJ4",
-            collections=["C"], read_depth="full", read_mode="rendered", attachment_key="PLXDWZZT",
+            collections=["C"], read_depth="full", read_mode="rendered", attachment_key="PLXDWZZT", supplement="none",
             ingested="2026-10-17", updated="2026-10-17", zotero_checked="2026-10-18",
             zotero_fingerprint="v3 biblio:0000000a abstract:none pdf:0000000b notes:none ann:none")
 
@@ -80,6 +80,11 @@ check("baseline source page is valid", errors_for() == [])
 check("impossible date rejected", any("valid YYYY-MM-DD" in m for _, m in errors_for(updated="2026-99-99")))
 check("list-valued title rejected", any("title must be a single string" in m for _, m in errors_for(title=["a", "b"])))
 check("read_depth full + read_mode none rejected", any("cannot have read_mode" in m for _, m in errors_for(read_mode="none")))
+check("full read without supplement rejected", any("must record supplement" in m for _, m in errors_for(supplement=None)))
+check("metadata-only read needs no supplement", not any("supplement" in m for _, m in errors_for(supplement=None, read_depth="metadata-only", read_mode="none", attachment_key=None)))
+check("supplement reason: an explicit reason line counts, a bare 'not read' does not",
+      bool(wikilint.SUPP_REASON.search("> Supplement not read: the main text states every parameter used here."))
+      and not wikilint.SUPP_REASON.search("> The SI was not read."))
 check("metadata-only + rendered rejected", any("cannot have read_mode" in m for _, m in errors_for(read_depth="metadata-only")))
 check("rendered without attachment_key rejected", any("no attachment_key" in m for _, m in errors_for(attachment_key=None)))
 check("split author rejected", any("author entry" in m for _, m in errors_for(authors=["Behler", "J."])))
@@ -220,6 +225,7 @@ zotero_uri: zotero://select/library/items/{key}
 attachment_key: ATTAAAA1
 collections: ["C"]
 read_depth: full
+supplement: none
 read_mode: rendered
 ingested: 2026-10-18
 updated: 2026-10-18
