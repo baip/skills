@@ -26,7 +26,9 @@ without changing the policy. Set up {{DATE}} ({{ENVIRONMENT}}).
 | `item KEY` | Metadata, citekey, collections, tags, attachments (with annotation counts) and child notes |
 | `notes KEY` / `annotations ATTACHMENT_KEY` | The user's own notes and highlights, which are high-signal; prints "(no notes …)" or "(no annotations …)" when there are none |
 | `pdfpath KEY` | One line per PDF attachment: `ATTACHMENT_KEY<TAB>ABSOLUTE_PATH<TAB>OK\|MISSING` (stored or linked files), for reading in place; take the second field |
+| `render KEY [--pages 3-7] [--dpi 150]` | PDF pages as PNG files in `$TMPDIR/zotero-wiki/pages/`, one `PAGE<TAB>PATH` line each; view them as images (Reading PDFs, below) |
 | `fulltext ATTACHMENT_KEY` | Zotero's text index, written to `$TMPDIR/zotero-wiki/`. Use it for search and exact quotes only |
+| `clean` | Deletes `$TMPDIR/zotero-wiki/` (rendered pages, text indexes); run it at the end of an interaction |
 | `coverage KEY [--recursive]` | Per-item state: `[ ]` none, `[m]` metadata, `[r]` read, `[x]` integrated |
 | `fingerprint KEY` | v3 content hashes: biblio (bibliographic and venue fields), abstract, pdf (attachment key plus MD5, or link mode, path and mtime without one), notes, annotations (with page label and position) |
 | `stamp CITEKEY…` / `stamp ALL` | Write `zotero_fingerprint` and `zotero_checked` (atomic write). It first compares with the previous baseline using that baseline's own algorithm (v2 or v3). If a scientific part changed, or the baseline was incomplete, it queues the evidence dependents in `pending.md`, under a lock |
@@ -80,15 +82,22 @@ Lint checks the line format, outcome, basis length and links.
   the (possibly cloud-synced) wiki. Locking uses `fcntl`, so the tools need macOS or Linux (on Windows, run them under WSL). They then replace the file atomically (temp file plus `os.replace`). `stamp` and `relink.py` also write atomically.
 - Locks only coordinate processes on **one machine**. Do not run tools against the same wiki from two computers at once.
 
-## Reading PDFs in place
+## Reading PDFs (AGENTS.md §7)
 
-- Get the path with `zot.py pdfpath KEY`. Then view the rendered pages with the agent's file-reading tool,
-  using page ranges (Claude Code's `Read` takes at most 20 pages per call: `"1-20"`, `"21-40"`, …).
-- Page rendering in Claude Code needs poppler (`pdftoppm`): `brew install poppler` on macOS, `apt install poppler-utils`
-  on Debian/Ubuntu. Other agents need some way to view PDF pages as images; without one, record `read_mode: text-index`.
-- `zot.py fulltext` writes the text index to `$TMPDIR/zotero-wiki/`, outside the wiki; delete those files at the end of the
-  interaction (AGENTS.md §8.2 step 8). A first `stamp` of a new page has no baseline and never queues anything.
-- Rendering happens in memory, so nothing is copied. Never filter or truncate extracted text to "clean" it.
+- `zot.py render KEY --pages 1-10` renders PDF pages to PNG files in `$TMPDIR/zotero-wiki/pages/ATTACHMENT_KEY/` and
+  prints one `PAGE<TAB>PATH` line per page; view each file with the agent's image viewer. PAGE is the 1-based PDF page
+  index used in `zotero://open-pdf/…?page=N` links. The default 150 dpi keeps subscripts and table digits legible; use
+  `--dpi 200` for small print. Render about 10–20 pages at a time and view every page of a batch before the next.
+- This works for any agent that can view a local image file: Claude Code (`Read`), Codex (its image viewer), OpenCode
+  with a vision-capable model. Claude Code's `Read` can also open the PDF directly with page ranges (at most 20 pages
+  per call: `"1-20"`, `"21-40"`, …); either way counts as `rendered`.
+- An agent that cannot view images reads the text index instead and records `read_mode: text-index` (figures unseen,
+  equations unverified). Never record `rendered` for a page that was not viewed as an image.
+- Rendering needs poppler (`pdftoppm`, `pdfinfo`): `brew install poppler` on macOS, `apt install poppler-utils` on Debian/Ubuntu.
+- `zot.py fulltext` writes the text index to `$TMPDIR/zotero-wiki/`, outside the wiki. `zot.py clean` deletes the rendered
+  pages and text indexes; run it at the end of the interaction (AGENTS.md §8.2 step 8). A first `stamp` of a new page has
+  no baseline and never queues anything.
+- The PDF is read in place and never copied. Never filter or truncate extracted text to "clean" it.
 
 ## Batch runs (AGENTS.md §8.2b)
 
@@ -101,12 +110,51 @@ Lint checks the line format, outcome, basis length and links.
   open question, and unresolved problems. The main agent runs lint until clean and writes one log entry for the batch.
 - Completion is judged by AGENTS.md §8.2, not by whether pages exist. Report what changed in the synthesis.
 
-- Claude Code allows **20 concurrent subagents** by default (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`).
-- Keep the reader and integrator instruction files in the session scratchpad. Give each subagent its batch, and the
-  fixed vocabulary of planned slugs, in its prompt.
-- After a session or rate limit, subagents keep their transcripts. Resume them with a message (SendMessage to their
-  id) and tell them to check which of their pages are already complete.
-- Run `relink.py --apply` only after every reader has finished, because it rewrites files the readers may be editing.
+- **With subagents** (Claude Code allows 20 concurrent subagents by default, `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`):
+  keep the reader and integrator instruction files in a temp directory outside the wiki (in Claude Code, the session
+  scratchpad), and give each subagent its batch and the fixed vocabulary of planned slugs in its prompt. Subagents must
+  be able to run the tools and view images; if they cannot, use the sequential mode. After a session or rate limit,
+  resume each subagent with a message (Claude Code: SendMessage to its id) and tell it to check which of its pages are
+  already complete.
+- **Without subagents** (or when they cannot run the tools or view images), run the same phases in one session, in
+  order: read and write every source page first, one paper at a time, saving each integration brief to a temp file
+  outside the wiki; then integrate one page set at a time from the briefs; then write the topic synthesis, index and
+  log. Do not edit concept, entity or topic pages during the reading phase. If the session ends midway, the stamped
+  source pages are the checkpoint: resume reading at the first item without a page, and rebuild missing briefs from
+  the source pages.
+- Run `relink.py --apply` only after all reading has finished, because it rewrites files a reader may be editing.
+
+## Running under other coding agents
+
+Every rule is in `AGENTS.md`, which Codex and OpenCode load by themselves and Claude Code loads through `CLAUDE.md`. The
+tools are plain `python3 -I tools/…` commands, so what differs between agents is only what they are allowed to do. The
+wiki needs:
+
+1. network access to `localhost:23119` (Zotero's local API, and Better BibTeX on the same port);
+2. writes to this folder, the system temp directory, the git directory if it is outside this folder (see Revision
+   history), and the skill folder (`{{SKILL_DIR}}`) when a tool changes (AGENTS.md §12);
+3. viewing local image files (rendered PDF pages) and poppler on the `PATH`.
+
+- **Claude Code**: works as is; approve the prompts for these commands, or allow them in its settings.
+- **Codex**: its default `workspace-write` sandbox blocks network access and writes outside the folder it was started
+  in. Start it from this folder and allow both in `~/.codex/config.toml` (key names as of 2026; newer versions also
+  offer permission profiles, so check the Codex docs for yours):
+
+  ```toml
+  sandbox_mode = "workspace-write"
+  [sandbox_workspace_write]
+  network_access = true
+  writable_roots = ["<git directory, if outside this folder>", "<skill folder, resolved>"]
+  ```
+
+  Some Codex versions keep `.git` folders read-only even inside writable roots; if a commit is refused, approve it
+  to run outside the sandbox when Codex asks.
+
+- **OpenCode**: no sandbox by default, but its permission settings (`opencode.json`) may ask before shell commands and
+  edits; allow `python3 -I tools/*`, `git` and the poppler commands.
+- **The skill's location.** The tools look for the skill at `$ZOTERO_LLM_WIKI_SKILL`, else
+  `~/.claude/skills/zotero-llm-wiki`. OpenCode also loads skills from `~/.claude/skills`. Codex loads them from
+  `~/.codex/skills`: link `~/.codex/skills/zotero-llm-wiki` to the same folder, so both paths lead to one copy.
 
 ## Revision history (git)
 

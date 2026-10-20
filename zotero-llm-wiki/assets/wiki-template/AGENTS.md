@@ -200,9 +200,10 @@ Only if it answers a recurring question, supports a comparison across sources, o
 
 - All access goes through `tools/zot.py`, read-only (§2.1). If Zotero is not running, ask the user to start it.
 - The user's notes and annotations are high-signal: always read them during ingest.
-- **Reading a paper means viewing its rendered PDF pages.** The text index is for searching and exact quotes only;
-  never filter or truncate it. If a PDF cannot be rendered, read the text index and record `read_mode: text-index`.
-  Without a PDF, record `abstract` or `metadata-only`. Never copy a PDF.
+- **Reading a paper means viewing its rendered PDF pages** (`zot.py render`, then view each page image; tools/README.md).
+  The text index is for searching and exact quotes only; never filter or truncate it. If a PDF cannot be rendered, read
+  the text index and record `read_mode: text-index`. Without a PDF, record `abstract` or `metadata-only`. Never copy a
+  PDF.
 
 ## 8. Workflows
 
@@ -240,12 +241,13 @@ or annotations, and what the page stresses and why; use §8.2b for more than abo
    Then `catalog.py --apply`, update `index.md` and `log.md`, and lint.
 8. **Report** what changed in the wiki's understanding, the disagreements found, and 1–3 next ingests. Clean up temp files.
 
-### 8.2b Batch ingest (subagents)
+### 8.2b Batch ingest
 
 For more than about 5 items: inventory the items and their states; **reader** subagents do steps 1–5 and write only
 their own source pages, returning an integration brief per paper (claims per target page with locators and scope,
 tensions, evidence on open questions, reading-queue candidates); after all readers finish, **integrator** subagents
-each own a disjoint set of pages; the main agent alone writes the topic synthesis, index and log. Details in tools/README.md.
+each own a disjoint set of pages; the main agent alone writes the topic synthesis, index and log. An agent without
+subagents runs the same phases in order in one session. Details in tools/README.md.
 
 ### 8.3 Query
 
