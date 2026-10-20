@@ -26,8 +26,8 @@ changes ("Figure 5: the labels overlap", "the dots do not show in the PDF",
    (`scripts/contact_sheet.py`) that you inspect. Every change affecting the
    PDF (a glyph, a table, float placement, captions) is checked in the built
    PDF, by rendering the page, unless the author has said not to build.
-6. **Report briefly.** One line per item: what changed. Attach the contact
-   sheet. Mention anything you could not do, anything you chose on the
+6. **Report briefly.** One line per item: what changed. Give the author
+   the contact sheet, as a file if you can send one, otherwise its path. Mention anything you could not do, anything you chose on the
    author's behalf, and anything you noticed that is outside the round but
    worth their attention. Do not recap the whole document.
 

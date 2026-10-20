@@ -27,6 +27,11 @@ python3 package.py --list              # what each package would hold, writing n
 - **Claude Code:** link or copy the skill's folder into `~/.claude/skills/`,
   for example `ln -s "$PWD/funding-monitor" ~/.claude/skills/funding-monitor`.
   A link picks up every later change without reinstalling.
+- **Codex and OpenCode:** link the folder into `~/.agents/skills/`, which
+  both read: `ln -s "$PWD/funding-monitor" ~/.agents/skills/funding-monitor`.
+  OpenCode also reads `~/.claude/skills/`, so a Claude Code link serves it
+  too. Codex's documentation names `~/.agents/skills/` as of October 2026,
+  and older versions read `~/.codex/skills/`.
 - **Other hosts:** install the folder, or unzip the `.skill` file, wherever
   the host looks for skills.
 

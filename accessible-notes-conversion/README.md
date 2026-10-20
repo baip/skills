@@ -45,6 +45,14 @@ which packages every skill in the repository.
 
    Open the `.skill` file in the Claude app and save it to replace the
    installed version. The file is a build product and is not committed.
+   Claude Code, Codex and OpenCode need no package: link this folder where
+   they look for skills (the repository's README says where), and every
+   change is picked up as soon as it is made.
+4. If the change affects what a project's agent must know (a standing
+   rule, a new reference, a new permission the work needs), update
+   `assets/templates/AGENTS.template.md` or the "Running under other coding
+   agents" section of `references/building.md` too, and the matching
+   files of projects already set up.
 
 ## Testing a change
 
