@@ -27,15 +27,26 @@ Check, and fix with the user, the things setup depends on:
   communicate with Zotero". Do not work around a closed Zotero by reading its database: the wiki's policy is to read
   Zotero only through its API, never `zotero.sqlite`.
 - **PDF pages can be viewed.** The wiki's reading rule is to look at rendered pages (figures, tables and equations as
-  printed), not only extracted text. In Claude Code that needs poppler (`pdftoppm`). If it is missing, offer the install
-  command for their platform; if they decline, readings will be recorded as `read_mode: text-index`.
+  printed), not only extracted text. The wiki's `zot.py render` turns pages into PNG files with poppler (`pdftoppm`,
+  `pdfinfo`), and the agent views them as images, so it needs poppler and an agent that can view a local image file
+  (Claude Code, Codex, or OpenCode with a vision-capable model). If poppler is missing, offer the install command for
+  the user's platform; if they decline, or the agent cannot view images, readings are recorded as
+  `read_mode: text-index`.
 - **Python 3.9+** is available as `python3`.
 - **This skill is installed**, not run from a temporary or one-off copy: at `~/.claude/skills/zotero-llm-wiki` (a
   symlink to a clone works, and picks up updates), or in any folder named by the environment variable
-  `ZOTERO_LLM_WIKI_SKILL` (set it in the shell profile so later sessions see it too). The wiki keeps its tools in step
+  `ZOTERO_LLM_WIKI_SKILL` (set it in the shell profile so later sessions see it too). OpenCode also finds skills in
+  `~/.claude/skills`; for Codex, which loads skills from `~/.codex/skills`, link `~/.codex/skills/zotero-llm-wiki` to
+  the same folder. The wiki keeps its tools in step
   with this installed copy: its schema says tools are changed here first, and its linter warns when `tools/` differs.
   `init_wiki.py` refuses to run from anywhere else and prints the install command; install it with the user's
   agreement, then run the installed copy.
+
+- **The agent may do what the wiki needs**: reach `localhost:23119` (Zotero), write in the wiki folder, the temp
+  directory, a separate git directory and this skill's folder, and run `python3`, `git` and poppler. Claude Code asks
+  for permission as it goes. Codex's default sandbox blocks the network and writes outside the folder it was started
+  in, and OpenCode may ask before shell commands: the new wiki's `tools/README.md` ("Running under other coding
+  agents") gives the settings; point the user to it before the first ingest.
 
 ## Setup interview
 

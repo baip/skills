@@ -3,8 +3,8 @@
 
 Policy (AGENTS.md §2.1): the wiki never modifies Zotero, whatever the API allows. This client
 sends only GET requests to the local API (http://localhost:23119/api/), plus one read-only
-Better BibTeX JSON-RPC method (item.citationkey). It never touches zotero.sqlite. Full text goes
-to a temp directory outside the wiki. The only wiki writes are `stamp`, which records a
+Better BibTeX JSON-RPC method (item.citationkey). It never touches zotero.sqlite. Full text and rendered
+pages go to a temp directory outside the wiki. The only wiki writes are `stamp`, which records a
 provenance fingerprint in a source page's frontmatter.
 
 Usage:
@@ -16,7 +16,9 @@ Usage:
   zot.py notes ITEM_KEY               # child notes as plain text
   zot.py annotations ATTACHMENT_KEY   # highlights/comments on a PDF
   zot.py pdfpath KEY                  # one line per PDF: ATTACHMENT_KEY<TAB>ABSOLUTE_PATH<TAB>OK|MISSING; read it in place
+  zot.py render KEY [--pages 3-7] [--dpi 150]  # PDF pages -> PNG files in a temp dir, to view as images
   zot.py fulltext ATTACHMENT_KEY      # text index -> temp dir, for searching/quoting only
+  zot.py clean                        # delete the temp dir (rendered pages, text indexes)
   zot.py coverage COLLECTION_KEY [--recursive]    # per-item state: none / metadata / read / integrated
   zot.py fingerprint KEY              # v3 content hashes: biblio, abstract, pdf, notes, annotations
   zot.py stamp CITEKEY|KEY [...]      # record fingerprint; queues dependents first if a scientific part changed
@@ -29,6 +31,8 @@ import html
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -306,15 +310,16 @@ def base_attachment_path():
     return zotero_pref("extensions.zotero.baseAttachmentPath")
 
 
-def cmd_pdfpath(a):
-    it = get(f"/items/{a.key}")
+def pdf_attachments(key):
+    """(attachment key, absolute path, exists) for each PDF of an item, or for a PDF attachment key itself."""
+    it = get(f"/items/{key}")
     atts = [it] if it["data"]["itemType"] == "attachment" else \
-        [c for c in get(f"/items/{a.key}/children") if c["data"]["itemType"] == "attachment"]
-    pdfs = [c for c in atts if c["data"].get("contentType") == "application/pdf"]
-    if not pdfs:
-        sys.exit("No PDF attachment.")
-    for c in pdfs:
+        [c for c in get(f"/items/{key}/children") if c["data"]["itemType"] == "attachment"]
+    out = []
+    for c in atts:
         d = c["data"]
+        if d.get("contentType") != "application/pdf":
+            continue
         if d["linkMode"] in ("imported_file", "imported_url"):
             path = os.path.join(DATA, "storage", c["key"], d["filename"])
         elif d["linkMode"] == "linked_file":
@@ -323,7 +328,68 @@ def cmd_pdfpath(a):
                 path = os.path.join(base_attachment_path(), path[len("attachments:"):])
         else:
             continue
-        print(f"{c['key']}\t{path}\t{'OK' if os.path.exists(path) else 'MISSING'}")
+        out.append((c["key"], path, os.path.exists(path)))
+    return out
+
+
+def cmd_pdfpath(a):
+    pdfs = pdf_attachments(a.key)
+    if not pdfs:
+        sys.exit("No PDF attachment.")
+    for k, path, ok in pdfs:
+        print(f"{k}\t{path}\t{'OK' if ok else 'MISSING'}")
+
+
+def page_range(spec, n):
+    """'4', '3-7', '5-' or None (all) -> (first, last), 1-based PDF page indices within 1..n."""
+    if not spec:
+        return 1, n
+    m = re.fullmatch(r"(\d+)(?:-(\d*))?", spec.strip())
+    if not m:
+        sys.exit(f"--pages must look like 4, 3-7 or 5-, not {spec!r}")
+    first = int(m.group(1))
+    last = n if m.group(2) == "" else int(m.group(2) or first)
+    if not 1 <= first <= last <= n:
+        sys.exit(f"--pages {spec} is outside this PDF's pages 1-{n}")
+    return first, last
+
+
+def cmd_render(a):
+    """Render PDF pages to PNG files outside the wiki, so any agent that can view an image file reads the page as
+    printed (AGENTS.md §7). Overwrites earlier renders of the same pages; `clean` deletes them all."""
+    missing = [t for t in ("pdftoppm", "pdfinfo") if shutil.which(t) is None]
+    if missing:
+        sys.exit(f"{' and '.join(missing)} not found: install poppler (macOS: brew install poppler; Debian/Ubuntu: "
+                 "apt install poppler-utils). Without it, read the text index and record read_mode: text-index.")
+    pdfs = [p for p in pdf_attachments(a.key) if p[2]]
+    if not pdfs:
+        sys.exit(f"No PDF file found for {a.key}; `zot.py pdfpath {a.key}` shows what Zotero records.")
+    if len(pdfs) > 1:
+        sys.exit("Several PDFs; pass one attachment key:\n" + "\n".join(f"{k}\t{p}" for k, p, _ in pdfs))
+    att, path, _ = pdfs[0]
+    info = subprocess.run(["pdfinfo", path], capture_output=True, text=True)
+    m = re.search(r"^Pages:\s+(\d+)", info.stdout, re.M)
+    if info.returncode or not m:
+        sys.exit(f"pdfinfo could not read {path}: {(info.stderr or info.stdout).strip()}")
+    n = int(m.group(1))
+    first, last = page_range(a.pages, n)
+    out = os.path.join(TMP, "pages", att)
+    assert not os.path.abspath(out).startswith(WIKI + os.sep), "refusing to write inside the wiki"
+    os.makedirs(out, exist_ok=True)
+    r = subprocess.run(["pdftoppm", "-r", str(a.dpi), "-f", str(first), "-l", str(last), "-png", path,
+                        os.path.join(out, "p")], capture_output=True, text=True)
+    if r.returncode:
+        sys.exit(f"pdftoppm failed: {r.stderr.strip()}")
+    print(f"{att}: pages {first}-{last} of {n} at {a.dpi} dpi; view each file as an image (PAGE<TAB>PATH):")
+    for f in sorted(os.listdir(out)):
+        num = re.fullmatch(r"p-0*(\d+)\.png", f)
+        if num and first <= int(num.group(1)) <= last:
+            print(f"{num.group(1)}\t{os.path.join(out, f)}")
+
+
+def cmd_clean(a):
+    shutil.rmtree(TMP, ignore_errors=True)
+    print(f"removed {TMP}")
 
 
 def cmd_fulltext(a):
@@ -558,7 +624,9 @@ def main():
     s = sub.add_parser("notes"); s.add_argument("key")
     s = sub.add_parser("annotations"); s.add_argument("key")
     s = sub.add_parser("pdfpath"); s.add_argument("key")
+    s = sub.add_parser("render"); s.add_argument("key"); s.add_argument("--pages"); s.add_argument("--dpi", type=int, default=150)
     s = sub.add_parser("fulltext"); s.add_argument("key")
+    sub.add_parser("clean")
     s = sub.add_parser("coverage"); s.add_argument("key"); s.add_argument("--recursive", action="store_true")
     s = sub.add_parser("fingerprint"); s.add_argument("key")
     s = sub.add_parser("stamp"); s.add_argument("keys", nargs="+", help="citekeys, Zotero keys, or ALL")

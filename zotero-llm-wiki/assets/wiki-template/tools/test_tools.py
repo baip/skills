@@ -3,6 +3,8 @@
 Run from the wiki root: python3 -I tools/test_tools.py  (exits 1 on failure)."""
 import copy
 import os
+import shutil
+import tempfile
 import sys
 
 sys.dont_write_bytecode = True  # no __pycache__ inside the wiki, which may be cloud-synced
@@ -576,9 +578,54 @@ with tempfile.TemporaryDirectory() as tmp:
     finally:
         wikimeta.WIKI, wikimeta.PENDING, zot.PENDING, wikilint.WIKI, wikimeta.REVIEWED = saved
 
+# ---- rendering PDF pages to images ----------------------------------------------------------
+check("page range: single page, span, open end, all", (zot.page_range("4", 9), zot.page_range("3-7", 9),
+      zot.page_range("5-", 9), zot.page_range(None, 9)) == ((4, 4), (3, 7), (5, 9), (1, 9)))
+for _bad in ("0", "8-3", "2-12", "a-b"):
+    try:
+        zot.page_range(_bad, 9)
+        check(f"page range {_bad!r} is refused", False)
+    except SystemExit:
+        check(f"page range {_bad!r} is refused", True)
+if shutil.which("pdftoppm") and shutil.which("pdfinfo"):
+    def _tiny_pdf(path, pages):
+        objs = ["<< /Type /Catalog /Pages 2 0 R >>",
+                "<< /Type /Pages /Kids [%s] /Count %d >>" % (" ".join(f"{3 + i} 0 R" for i in range(pages)), pages)]
+        objs += ["<< /Type /Page /Parent 2 0 R /MediaBox [0 0 72 72] >>"] * pages
+        out, offs = b"%PDF-1.4\n", []
+        for i, o in enumerate(objs, 1):
+            offs.append(len(out))
+            out += f"{i} 0 obj\n{o}\nendobj\n".encode()
+        x = len(out)
+        out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
+        out += "".join(f"{o:010d} 00000 n \n" for o in offs).encode()
+        out += f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF\n".encode()
+        open(path, "wb").write(out)
+    _t = tempfile.mkdtemp(prefix="wiki-render-test-")
+    _saved = (zot.get, zot.TMP)
+    try:
+        _pdf = os.path.join(_t, "paper.pdf")
+        _tiny_pdf(_pdf, 12)
+        zot.get = lambda path, **kw: {"key": "ATTPDF01", "data": {"itemType": "attachment", "contentType": "application/pdf",
+                                                                   "linkMode": "linked_file", "path": _pdf}}
+        zot.TMP = os.path.join(_t, "tmp")
+        _out = run(zot.cmd_render, key="ATTPDF01", pages="9-11", dpi=20)
+        _rows = [l.split("\t") for l in _out.splitlines()[1:]]
+        check("render: one PNG per requested page, numbered by PDF page index",
+              [r[0] for r in _rows] == ["9", "10", "11"] and all(os.path.isfile(r[1]) for r in _rows))
+        check("render: pages land in the temp dir, outside the wiki",
+              all(r[1].startswith(zot.TMP + os.sep) and not r[1].startswith(zot.WIKI + os.sep) for r in _rows))
+        _out = run(zot.cmd_render, key="ATTPDF01", pages="2", dpi=20)
+        check("render: a later call lists only its own pages", [l.split("\t")[0] for l in _out.splitlines()[1:]] == ["2"])
+        run(zot.cmd_clean)
+        check("clean: removes the temp dir", not os.path.exists(zot.TMP))
+    finally:
+        zot.get, zot.TMP = _saved
+        shutil.rmtree(_t, ignore_errors=True)
+else:
+    print("skip render tests: poppler (pdftoppm, pdfinfo) not installed")
+
 # ---- tools are checked against the installed skill -------------------------------------------
-import shutil  # noqa: E402
-import tempfile  # noqa: E402
 _t = tempfile.mkdtemp(prefix="wiki-tools-test-")
 try:
     _wiki, _tmpl = os.path.join(_t, "w"), os.path.join(_t, "skill", "assets", "wiki-template", "tools")
