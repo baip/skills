@@ -17,8 +17,8 @@ Prefer the most structured option the source offers, because structure gives dat
 
 ## Test before saving
 
-1. Fetch the URL once with web_fetch or curl and look at it.
-2. Add the block with `enabled = true`, then run `python3 scripts/scan.py --profile <profile> check --channel <id>`.
+1. Fetch the URL once with your web-fetch tool or `curl -sL` and look at it.
+2. Add the block with `enabled = true`, then run `python3 <skill-dir>/scripts/scan.py --profile <profile> check --channel <id>`.
 3. Read the result:
    - `OK (n items)`: look at a few items in a quick scan to confirm the links are real opportunities, not navigation.
    - `page fetched but no matching links`: either adjust `link_pattern`, or the page is JavaScript-rendered (an HTML shell under about 10 KB is a strong sign). Then try a sitemap, then `browser`, then `manual`.

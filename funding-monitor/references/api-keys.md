@@ -77,7 +77,7 @@ Agency newsletters (NSF Update, NIH Guide, DOE offices): subscription pages move
 
 1. **Store** the value with the host's own secret mechanism (a credential store, vault, keychain, or secrets settings). If the host has none, use a file outside the skill folder, readable only by the user (`chmod 600`).
 2. **Deliver** it to the process that runs `scripts/scan.py`, in whichever context that process runs (host process, sandbox, container, or remote VM). scan.py accepts any of these forms, in this order: the environment variable `NAME`; a file whose path is in `NAME_FILE`; `$CREDENTIALS_DIRECTORY/NAME` (systemd credentials); `/run/secrets/name` in lowercase (Docker or Kubernetes mounted secrets); a `NAME=value` line in `~/.config/funding-monitor/.env`. A file-based form keeps the value out of process listings and container metadata, so prefer it when the host supports mounted secrets.
-3. **Verify** with `python3 scripts/scan.py credentials`, which reports for each secret whether it resolved and through which form, never the value. Then run `scan.py check --channel sam-gov`.
+3. **Verify** with `python3 <skill-dir>/scripts/scan.py --profile <profile> credentials`, which reports for each secret whether it resolved and through which form, never the value. Then run `scan.py check --channel sam-gov`.
 
 Rules that hold everywhere: never put keys in `profile.toml`, because profiles are shared and bundled. Never ask for a key in chat when the host offers a secure entry path. Never write keys into presented files, memory, logs, or digests. If a key is exposed, tell the user to regenerate it. Both keys are optional, and scan.py skips and logs a channel whose key does not resolve.
 
@@ -103,7 +103,7 @@ required_environment_variables:
 
 Without the patch, put the key in `~/.hermes/.env` and list it under `terminal.env_passthrough` in `~/.hermes/config.yaml`.
 
-**Claude Code on a machine you control, cron, or a server.** Use a secrets manager that sets the variable at run time (for example the macOS Keychain), a systemd unit with `LoadCredential=SAM_API_KEY:/path/to/file`, or `~/.config/funding-monitor/.env` with `chmod 600`.
+**Claude Code, Codex or OpenCode on a machine you control, cron, or a server.** Under Codex, use the `.env` file below, because Codex removes variables whose names contain `KEY` from the commands it runs (see `references/agents.md`). Otherwise use a secrets manager that sets the variable at run time (for example the macOS Keychain), a systemd unit with `LoadCredential=SAM_API_KEY:/path/to/file`, or `~/.config/funding-monitor/.env` with `chmod 600`.
 
 **Claude Code cloud sessions.** Local files are invisible there. On Pro and Max, an environment's API credentials let Anthropic's proxy attach a key to requests without exposing it, but as a request header, and SAM.gov documents its key as an `api_key` query parameter, so this works only if SAM.gov also accepts an `X-Api-Key` header (unverified). Otherwise use an environment variable on a personal cloud environment, never an organization-shared one, and allow the funding domains under Custom network access.
 
