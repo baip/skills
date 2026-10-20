@@ -33,6 +33,49 @@ pip install playwright         # for checkweb.py; then: playwright install chrom
 pip install pillow
 ```
 
+## Running under other coding agents
+
+`AGENTS.md` holds the instructions: Codex and OpenCode load it by themselves,
+and Claude Code loads it through `CLAUDE.md`. Every step is a plain command,
+so what differs between agents is only what they are allowed to do. The work
+needs:
+
+1. Writes in this folder, `.git` included, and in the skill's folder when a
+   toolkit fix goes into the skill first.
+2. Running `python3`, `git`, `lualatex`, `pandoc`, `pdftoppm`, and the
+   Chromium that Playwright starts for `checkweb.py`.
+3. Viewing local image files: the rendered pages of the originals, the
+   contact sheets and the rendered PDF pages.
+4. The network, but only for the one-time installs above.
+
+- **Claude Code** works as is. Approve its prompts, or allow these commands
+  in its settings.
+- **Codex.** Its default `workspace-write` sandbox blocks the network and
+  writes outside the folder it was started in. Start it from this folder and
+  add the skill's folder (resolved, if it is a link) to the writable roots
+  in `~/.codex/config.toml`:
+
+  ```toml
+  sandbox_mode = "workspace-write"
+  [sandbox_workspace_write]
+  writable_roots = ["<skill folder, resolved>"]
+  ```
+
+  Set `network_access = true` in the same table only while installing. The
+  key names are as of 2026, and newer versions may offer permission
+  profiles instead, so check the Codex documentation for yours. Some
+  versions keep `.git` read-only even inside the workspace: if a commit is
+  refused, approve running it outside the sandbox. Do the same if
+  `checkweb.py` cannot start its browser inside the sandbox.
+- **OpenCode** has no sandbox by default, but its permission settings
+  (`opencode.json`) may ask before shell commands and edits. Allow
+  `python3`, `git`, `lualatex`, `pandoc` and the poppler commands.
+- **An agent without parallel helpers** (subagents) does a revision across
+  many documents one or two at a time, as the skill's
+  `references/notation-pass.md` describes.
+- **An agent that cannot view images** cannot transcribe, draw or check
+  figures. Give it only work that needs no looking.
+
 ## The everyday loop
 
 ```

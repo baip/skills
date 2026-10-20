@@ -21,7 +21,7 @@ A project looks like this:
 
 ```
 md2tex.py buildtex.py mkweb.py checkweb.py package.py contents.py   build scripts, run from the root
-<class>.cls  contents.yaml  CONVENTIONS.md  BUILD.md
+<class>.cls  contents.yaml  CONVENTIONS.md  BUILD.md  AGENTS.md  CLAUDE.md
 src/                 lectures: NN_Name.md, with NN_Name.tex and .pdf beside each
 2026/                one offering's homework and exams, same arrangement
 figures/             fig_<doc>_<NN>_<name>.svg, and the PDFs made from them
@@ -39,7 +39,7 @@ originals/  work/    the originals and page images, untracked
 | `scripts/contact_sheet.py` | render changed SVG figures onto one PNG to inspect and send |
 | `scripts/notation_lint.py` | flag notation compromises: limits in words, described annotations, flattened subscripts, letters outside the maths, bad alt blocks, glyphs the PDF font lacks |
 | `assets/toolkit/` | the build scripts and `notes.cls`, placed into a project by `init_project.py` |
-| `assets/templates/` | `contents.yaml`, an example lecture and drawing script, `.gitignore`, `package.json` |
+| `assets/templates/` | `contents.yaml`, an example lecture and drawing script, `.gitignore`, `package.json`, and the project's `AGENTS.md` and `CLAUDE.md` (instructions for coding agents) |
 | `references/transcribing.md` | reading originals, OneNote quirks, lectures and homework, pre-handover checks |
 | `references/figures.md` | how to draw figures that survive review |
 | `references/notation-pass.md` | revising existing documents to real notation, alone or with parallel helpers |
@@ -49,12 +49,15 @@ originals/  work/    the originals and page images, untracked
 ## 0. Set up or find the project
 
 1. **Look for an existing project**: `contents.yaml`, `md2tex.py`, a `*.cls`,
-   `CONVENTIONS.md`, `BUILD.md`. If it is there, **read its `CONVENTIONS.md`
-   and `BUILD.md` first and follow them where they differ from this skill**,
-   since they record decisions the author has made. Check the project's own
-   recent commits too: the author often revises documents by hand, and those
-   revisions are the current house style (frontmatter wording, what the
-   closing notes keep).
+   `CONVENTIONS.md`, `BUILD.md`. If it is there, **read its `AGENTS.md`,
+   `CONVENTIONS.md` and `BUILD.md` first and follow them where they differ
+   from this skill**, since they record decisions the author has made. If it
+   has no `AGENTS.md`, offer to add one from
+   `assets/templates/AGENTS.template.md`, with `CLAUDE.template.md` as its
+   `CLAUDE.md`, so that any coding agent opening the project finds the
+   rules. Check the project's own recent commits too: the author often
+   revises documents by hand, and those revisions are the current house
+   style (frontmatter wording, what the closing notes keep).
 2. **Otherwise scaffold one:**
 
    ```
@@ -77,7 +80,9 @@ originals/  work/    the originals and page images, untracked
 ## 1. Read the originals
 
 Text extraction returns only typed text. Handwriting and sketches are ink,
-so render the pages and read them as images, zooming into anything small:
+so render the pages and read them as images, zooming into anything small.
+This needs an agent that can view local image files. If yours cannot, say
+so and stop: a transcription from extracted text misses the handwriting.
 
 ```
 python3 <skill>/scripts/render_pages.py originals/03.pdf work/03
@@ -161,8 +166,8 @@ python3 <skill>/scripts/contact_sheet.py work/sheet.png figures/fig_<doc>_*.svg
 ```
 
 - **Look at the output.** View the contact sheet of every changed figure and
-  render the PDF pages holding changed equations, tables and figures. Send
-  the author the sheet.
+  render the PDF pages holding changed equations, tables and figures. Give
+  the author the sheet, as a file if you can send one, otherwise its path.
 - A document held back with `checked: false` is not on the website. To test
   its page, build the site in a scratch copy with it set to `true`.
 - Check 11 ("formula alternative text is not raw LaTeX") fails on TeX Live
@@ -187,6 +192,8 @@ example "make 05–10 match what I did to 01–04"), read
 `references/notation-pass.md`: study the author's own revision as the
 model, do the mechanical parts with a script, and hand the per-equation work
 to parallel helpers, two or three documents each, with a written brief.
+Without helpers, work through the documents one or two at a time from the
+same brief.
 
 ## 6. Delivery
 

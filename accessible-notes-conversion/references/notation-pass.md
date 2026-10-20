@@ -88,6 +88,14 @@ Helpers can be cut off (by a usage limit, for example). Their edits stay on
 disk, so a resumed helper should re-read its files as they are and finish
 the brief rather than start over.
 
+**Without parallel helpers** (an agent that has no subagents), do the same
+work in order. Write the brief anyway. Take one or two documents at a time,
+build and report on each before starting the next, and begin each from the
+brief and the files as they are on disk rather than from memory of the
+previous ones. A long batch can span several sessions this way, with the
+brief and the per-document reports as the hand-off, and git as the record
+of which documents are done.
+
 ## 5. Verify the whole batch yourself
 
 - Rebuild every document: all checks except check 11 must pass, no missing

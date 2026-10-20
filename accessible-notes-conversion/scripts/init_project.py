@@ -17,6 +17,8 @@ filled from the options:
     <class>.cls             the LaTeX class, renamed to --class
     contents.yaml           the table of contents and the site settings
     CONVENTIONS.md BUILD.md .gitignore package.json
+    AGENTS.md CLAUDE.md     instructions for coding agents (CLAUDE.md
+                            loads AGENTS.md for Claude Code)
     src/                    the lectures' Markdown, with their .tex and .pdf
                             beside them (an example lecture unless
                             --no-example)
@@ -30,7 +32,7 @@ the first one is added.
 
 --update-toolkit replaces only the build scripts in an existing project with
 the ones bundled here. It never touches the documents, the drawing scripts,
-the class file, contents.yaml or the two documentation files, since those
+the class file, contents.yaml or the documentation files, since those
 carry the project's own decisions. It prints what changed.
 
 Nothing that already exists is overwritten without --force, and the files
@@ -88,6 +90,9 @@ def plan_new(dest, values, example):
                   fill((REFS / "conventions.md").read_text(), values)))
     items.append((dest / "BUILD.md",
                   fill((REFS / "building.md").read_text(), values)))
+    items.append((dest / "AGENTS.md",
+                  fill((TEMPLATES / "AGENTS.template.md").read_text(), values)))
+    items.append((dest / "CLAUDE.md", TEMPLATES / "CLAUDE.template.md"))
     items.append((dest / ".gitignore",
                   fill((TEMPLATES / "gitignore").read_text(), values)))
     items.append((dest / "package.json", TEMPLATES / "package.json"))

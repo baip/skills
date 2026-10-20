@@ -8,7 +8,10 @@ handwritten additions) into a Markdown document that follows the project's
 
 Text extraction returns only typed text. In a OneNote export or a scan,
 every handwritten line and every sketch is ink, so extraction silently skips
-most of the content. Render the pages and read them:
+most of the content. Render the pages and read them. This needs an agent
+that can view local image files (Claude Code, Codex, or OpenCode with a
+model that reads images). If yours cannot, say so and stop rather than
+transcribe from extracted text:
 
 ```
 python3 <skill>/scripts/render_pages.py originals/03.pdf work/03

@@ -15,6 +15,7 @@ decisions of its own.
   package.py                        the archive
   contents.py           reads contents.yaml for every build script
   contents.yaml         the table of contents and the site settings
+  AGENTS.md, CLAUDE.md  instructions for coding agents
   {{CLASS}}.cls         the LaTeX class
   src/                  the lectures (*.md, the source of truth), each with
                         its generated *.tex and *.pdf beside it
