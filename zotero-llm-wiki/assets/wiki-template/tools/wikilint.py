@@ -2,7 +2,8 @@
 """Structural lint for the wiki (AGENTS.md §8.4). Read-only; prints a report and exits 1 on errors.
 
 Errors (must be fixed):
-  frontmatter   unparseable frontmatter, missing or mistyped fields, values outside the permitted sets
+  frontmatter   unparseable frontmatter, missing or mistyped fields, values outside the permitted sets (a full or
+                partial read must record `supplement`)
   identity      duplicate (library, zotero_key), a page name used in two folders or clashing with a root file
   broken link   wikilink to a page that does not exist
   sources       sources: lists an unknown page, misses a cited source, or lists one never cited
@@ -18,6 +19,7 @@ Warnings (judgment calls; `--strict` makes them fail too, which is the ingest co
   catalog       a generated field is out of date: a sources: list or index.md counts/metadata (run tools/catalog.py)
   unintegrated  source read but not cited in the text of any concept, entity or topic page
   pending       an open item in pending.md (pages awaiting a synthesis review)
+  supplement    `supplement: not-read` without a line "Supplement not read: <reason>" in the page body
   tools         a tools/*.py file differs from the installed zotero-llm-wiki skill, or the skill is not installed
                 (tools are changed in the skill first, then copied in with init_wiki.py --upgrade-tools; AGENTS.md §12)
 """
@@ -60,6 +62,7 @@ MODES_FOR_DEPTH = {"full": {"rendered", "text-index", "mixed"}, "partial": {"ren
                    "abstract": {"none"}, "metadata-only": {"none"}}
 CONTRA = re.compile(r"^> \[!contradiction(\|([a-z-]+))?\]", re.M)
 CONTRA_STATUS = {"open", "scope", "superseded", "corrected"}
+SUPP_REASON = re.compile(r"Supplement not read: *\S", re.I)
 ZLINK = re.compile(r"\]\(zotero://select/library/items/(\w+)\)")
 
 
@@ -98,6 +101,8 @@ def check_fields(name, f, errs):
         for k in ("zotero_key", "attachment_key"):
             if k in f and not KEY.match(str(f[k])):
                 errs.append(("frontmatter", f"{name}: {k}={f[k]!r} is not an 8-character Zotero key"))
+        if f.get("read_depth") in ("full", "partial") and f.get("supplement") in (None, ""):
+            errs.append(("frontmatter", f"{name}: a {f['read_depth']} read must record supplement: read, skimmed, not-read or none"))
         if f.get("read_depth") in ("full", "partial") and not (f.get("zotero_fingerprint") and f.get("zotero_checked")):
             errs.append(("provenance", f"{name}: read source lacks zotero_fingerprint/zotero_checked (run zot.py stamp)"))
         if f.get("zotero_fingerprint"):
@@ -203,6 +208,8 @@ def main():
                 errs.append(("sources", f"{name}: cites [[{s}]] but not in sources:"))
             for s in sorted((declared & set(pages)) - cited):
                 errs.append(("sources", f"{name}: lists {s} in sources: but never cites it"))
+        if f.get("type") == "source" and f.get("supplement") == "not-read" and not SUPP_REASON.search(body):
+            warns.append(("supplement", f"{name}: supplement: not-read needs a line \"Supplement not read: <reason>\" in the Reading history"))
         vo = f.get("version_of")
         if vo and (vo not in pages or pages[vo][0]["dir"] != "sources" or vo == name):
             errs.append(("consistency", f"{name}: version_of={vo!r} is not another source page"))

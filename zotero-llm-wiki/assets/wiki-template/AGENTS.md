@@ -34,9 +34,10 @@ else: reading, summarizing, cross-referencing, filing, tracking disagreements an
 5. **Disagreements are tracked, not silently overwritten** (§6.9).
 6. **Be honest about what was read.** Each source page records `read_depth` (`full` every body page · `partial` some
    sections, listed · `abstract` · `metadata-only`) and `read_mode` (`rendered` pages viewed as images · `text-index`
-   extracted text only, figures unseen and equations unverified · `mixed`, say which · `none`), plus optional
+   extracted text only, figures unseen and equations unverified · `mixed`, say which · `none`), plus
    `supplement` (`read` · `skimmed` · `not-read`: it exists but was not read, or is not attached in Zotero · `none`: the
-   work has no supplement). Never write a claim from a part you did not read.
+   work has no supplement), required for `full` and `partial` reads; `not-read` needs a line "Supplement not read:
+   <reason>" in the Reading history (§8.2 step 3). Never write a claim from a part you did not read.
 7. **Every interaction that changes the wiki** ends with `index.md` and `log.md` updated and `wikilint.py` reporting no
    errors. Warnings are allowed only while work is in progress, and the log entry lists them. An ingest is
    **complete** only when `wikilint.py --strict` passes (no warnings, no open review items).
@@ -70,7 +71,8 @@ else: reading, summarizing, cross-referencing, filing, tracking disagreements an
 - No other top-level folders without a schema change. Flat folders; page names unique across folders.
 - **Concept vs entity:** an entity has a proper name (a named model, method, dataset, instrument, code, organism, site or
   benchmark); a concept is a general idea, phenomenon or method class.
-- **Topics** are the evolving-thesis pages, each listing the Zotero collection(s) it mirrors.
+- **Topics** are synthesis pages that weigh all their sources equally and are revised as evidence accumulates, each
+  listing the Zotero collection(s) it mirrors.
 - **New collections** become new topics in this wiki rather than separate wikis, unless the user decides otherwise.
   Identity is library-qualified (§4), so merging wikis later stays cheap.
 
@@ -137,7 +139,7 @@ collections: ["Path/To/Collection"]*
 zotero_tags: [_review, ML-FF]
 read_depth: full*
 read_mode: rendered*
-supplement: not-read
+supplement: not-read*        # * for full and partial reads; not-read needs a reason (§2.6)
 version_of: <later citekey>
 ingested: 2026-01-01*
 updated: 2026-01-01*
@@ -225,13 +227,25 @@ a structural proxy; the semantic check is integration itself and the claim audit
 **Complete** when every item is integrated or metadata with a reason, the topic synthesis reflects the new evidence,
 `index.md` and `log.md` are updated, and strict lint passes. Otherwise the log calls the ingest *incomplete*.
 
+**Every source is read on its own terms.** Write its page from the paper alone (its questions, methods, findings and
+limitations) as if it were the first item ingested, and only then integrate it (step 6). Order of ingestion confers no
+authority: an earlier page is not a thesis for later papers to confirm or refute, a later paper need not relate to
+existing pages, and one that fits no existing page gets new pages by §5.6 rather than being bent to fit. Comparison
+with the wiki belongs in integration and in `[!synthesis]` and `[!contradiction]` callouts, not in a source page's
+TL;DR or key contributions.
+
 **Modes.** *Guided* (default for one or a few items): discuss (step 4) before writing (step 5). *Delegated* (a batch, or
 "proceed"): skip step 4 and record under `## User notes` that there was no discussion, the date, whether Zotero has notes
 or annotations, and what the page stresses and why; use §8.2b for more than about 5 items.
 
 1. **Identify** the item (`zot.py item`) and **check its state**; an existing page means a re-ingest or resume.
 2. **Gather** metadata, the user's notes and annotations, and the PDF.
-3. **Read** the rendered pages. Record the section→page map, transcribe equations, note what was not read.
+3. **Read** the rendered pages. The default is complete: every body page, and every figure and table with its caption.
+   Read the supplement where the main text relies on it (methods, parameters, data or results it defers there);
+   otherwise record `supplement: not-read` and a line "Supplement not read: <reason>" in the Reading history. Less
+   than the full main text is `partial`, with what was skipped and why (missing from Zotero, unreadable, the user's
+   choice). Targeted reading to answer a question belongs to a query (§8.3) and is never presented as a completed
+   ingest. Record the section→page map, transcribe equations, note what was not read.
 4. *(Guided)* **Discuss**: 3–6 takeaways, pages to touch, tensions with the wiki. Ask what to emphasize and record it
    under `## User notes`.
 5. **Write the source page**, then `zot.py stamp`.
