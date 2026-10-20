@@ -38,6 +38,8 @@ check("unterminated quote is an error", fm('title: "unterminated')[2] != [])
 check("unbalanced bracket is an error", fm("tags: [a, b")[2] != [])
 check("text after closing quote is an error", fm('title: "a" b')[2] != [])
 check("flow map", fm('zotero_collections: {NMY5N3K8: "FF/ML"}')[0].get("zotero_collections") == {"NMY5N3K8": "FF/ML"})
+check("quoted map value keeps its comma",
+      fm('zotero_collections: {A1: "M/a, b", B2: "M/c"}')[0].get("zotero_collections") == {"A1": "M/a, b", "B2": "M/c"})
 check("integer year", fm("year: 2021")[0].get("year") == 2021)
 check("fallback citekey: authorTitleWordsYear without stop words",
       zot.fallback_citekey({"creators": [{"lastName": "Behler"}], "title": "Four Generations of High-Dimensional Neural Network Potentials",

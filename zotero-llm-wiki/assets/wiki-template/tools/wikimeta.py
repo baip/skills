@@ -51,7 +51,7 @@ def _split_flow(s):
     out, cur, depth, i = [], "", 0, 0
     while i < len(s):
         ch = s[i]
-        if ch in "\"'" and not cur.strip():
+        if ch in "\"'" and (not cur.strip() or cur.rstrip().endswith(":")):  # an element, or a map value after "key:"
             j = _quoted_end(s, i)
             cur += s[i:j]
             i = j
