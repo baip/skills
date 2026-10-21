@@ -561,6 +561,18 @@ with tempfile.TemporaryDirectory() as tmp:
               wikimeta.parse_frontmatter(open(c3p).read())[0]["sources"] == ["s3"])
         check("catalog: abbreviations", catalog.abbrev("Force Fields/Machine Learning/Active learning") == "FF/ML/Active learning")
 
+        # ---- version_of: the earlier version of a cited work is integrated, not unintegrated (AGENTS.md §4) ----
+        vp = {"later": [dict(dir="sources", body="x", fields={"zotero_key": "VERKEYL1", "read_depth": "full"})],
+              "early": [dict(dir="sources", body="x", fields={"zotero_key": "VERKEYE1", "read_depth": "full",
+                                                              "version_of": "later"})],
+              "lone": [dict(dir="sources", body="x", fields={"zotero_key": "VERKEYN1", "read_depth": "full",
+                                                             "version_of": "absent"})],
+              "c9v": [dict(dir="concepts", body="A claim ([[later]] §1).", fields={})]}
+        vs = wikimeta.source_states(vp)
+        check("version_of: an earlier version counts as integrated once the later one is cited",
+              vs["VERKEYL1"][1] == "integrated" and vs["VERKEYE1"][1] == "integrated")
+        check("version_of: it does not excuse a page whose target is uncited", vs["VERKEYN1"][1] == "read")
+
         # ---- restatements: a corrected claim repeated on pages that do not cite the corrected page ----
         rp = {"c9": [dict(dir="concepts", body="Fixed claim.", fields={})],
               "t9": [dict(dir="topics", body="Every universal model is\nshort-ranged here.", fields={})],
