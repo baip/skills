@@ -313,6 +313,29 @@ with tempfile.TemporaryDirectory() as tmp:
         check("propagation: follows source chains (s2 -> s4, c2) but not concept links (c3) or Connections (s3)",
               sorted(wikimeta.propagate(pages, "s1")) == DEPS)
         check("propagation: records the source it went through", wikimeta.propagate(pages, "s1")["s4"] == "s2")
+
+        # ---- stamp resolves a page by filename, zotero_key or citekey, and never no-ops silently ----
+        # (the page keeps its filename when a re-ingest changes the citekey, AGENTS.md §4)
+        out = run(zot.cmd_stamp, keys=["SRCAAAA1"])
+        check("stamp: resolves by zotero_key", "stamped s1" in out)
+        s3p = os.path.join(tmp, "sources/s3.md")
+        s3_before = open(s3p).read()
+        open(s3p, "w").write(s3_before.replace("citekey: s3", "citekey: renamedAfterReingest2025"))
+        out = run(zot.cmd_stamp, keys=["renamedAfterReingest2025"])
+        check("stamp: resolves by a citekey that no longer matches the filename", "stamped s3" in out)
+        open(s3p, "w").write(s3_before)
+        refused = False
+        try:
+            run(zot.cmd_stamp, keys=["no-such-page"])
+        except SystemExit:
+            refused = True
+        check("stamp: an argument naming no source page is an error, not a silent no-op", refused)
+        refused = False
+        try:
+            run(zot.cmd_stamp, keys=["s1", "no-such-page"])
+        except SystemExit:
+            refused = True
+        check("stamp: it still reports the unmatched one when another argument did match", refused)
         check("seq: first stamp queues nothing", queued() == [])
         check("seq: clean wiki passes the strict gate", lint_strict()[0] == 0)
 
