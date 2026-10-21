@@ -17,7 +17,8 @@ Warnings (judgment calls; `--strict` makes them fail too, which is the ingest co
   orphan        page with no inbound link (besides index/log)
   stale ↗ link  ↗ Zotero link to an item that now has a source page (run tools/relink.py)
   catalog       a generated field is out of date: a sources: list or index.md counts/metadata (run tools/catalog.py)
-  unintegrated  source read but not cited in the text of any concept, entity or topic page
+  unintegrated  source read but not cited in the text of any concept, entity or topic page; a page whose
+                `version_of:` target is cited counts as integrated (§4 cites the later version of a work)
   pending       an open item in pending.md (pages awaiting a synthesis review)
   supplement    `supplement: not-read` without a line "Supplement not read: <reason>" in the page body
   tools         a tools/*.py file differs from the installed zotero-llm-wiki skill, or the skill is not installed

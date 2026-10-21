@@ -271,6 +271,10 @@ def source_states(pages=None):
     integrated - read, and cited in the body text (not just a Related/Sources list) of at least one
                  concept, entity or topic page. A structural proxy: the source is used somewhere, not
                  proof that every claim it bears on has been synthesized.
+
+    A page that sets `version_of:` counts as integrated once the version it names is itself cited:
+    the schema cites the later version and counts works, not pages (AGENTS.md §4), so the earlier
+    version is deliberately left uncited and must not be reported as unintegrated.
     """
     pages = pages or load_pages()
     cited = set()
@@ -285,7 +289,8 @@ def source_states(pages=None):
             if pg["dir"] != "sources" or not f.get("zotero_key"):
                 continue
             depth = f.get("read_depth")
-            state = "metadata" if depth in ("abstract", "metadata-only") else "integrated" if name in cited else "read"
+            used = name in cited or (f.get("version_of") or "").strip() in cited
+            state = "metadata" if depth in ("abstract", "metadata-only") else "integrated" if used else "read"
             out[f["zotero_key"]] = (name, state)
     return out
 
