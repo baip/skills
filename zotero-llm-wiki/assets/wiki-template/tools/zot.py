@@ -21,7 +21,8 @@ Usage:
   zot.py clean                        # delete the temp dir (rendered pages, text indexes)
   zot.py coverage COLLECTION_KEY [--recursive]    # per-item state: none / metadata / read / integrated
   zot.py fingerprint KEY              # v3 content hashes: biblio, abstract, pdf, notes, annotations
-  zot.py stamp CITEKEY|KEY [...]      # record fingerprint; queues dependents first if a scientific part changed
+  zot.py stamp PAGE|CITEKEY|KEY [...] # record fingerprint; queues dependents first if a scientific part changed
+                                      # (an argument that names no source page is an error, not a silent no-op)
   zot.py changed [--queue]            # source pages whose Zotero item changed since stamping; --queue adds review items to pending.md
 """
 import datetime
@@ -561,13 +562,21 @@ def cmd_stamp(a):
     """Record the v3 fingerprint of one consistent snapshot. Before replacing a previous baseline, compare
     it (with its own algorithm) against that same snapshot; if a scientific part changed, or the baseline
     was incomplete, queue the dependents first. Safe at any point, and under concurrency (locked queue).
-    In batch mode readers stamp only the pages they create (no baseline, nothing to queue)."""
+    In batch mode readers stamp only the pages they create (no baseline, nothing to queue).
+
+    A page is named by its filename, its zotero_key or its citekey: after a re-ingest the citekey can
+    differ from the filename, which the page keeps (AGENTS.md §4). An argument that matches nothing is
+    an error, not a silent no-op."""
     today = datetime.date.today().isoformat()
     wanted = set(a.keys)
+    matched = set()
     pages = load_pages()
     for name, pg in _source_pages(pages):
-        if not (name in wanted or pg["fields"]["zotero_key"] in wanted or "ALL" in wanted):
+        ids = {name, pg["fields"]["zotero_key"], pg["fields"].get("citekey")} - {None}
+        hit = ids & wanted
+        if not (hit or "ALL" in wanted):
             continue
+        matched |= hit
         raw = snapshot(pg["fields"]["zotero_key"])
         fp = fp_string(fingerprint_from(raw))
         stored = pg["fields"].get("zotero_fingerprint")
@@ -584,6 +593,10 @@ def cmd_stamp(a):
                       head, count=1, flags=re.M)
         atomic_write(pg["path"], head + sep + rest)
         print(f"stamped {name}: {fp}" + (f"  (queued {queued} dependent review(s) in pending.md)" if queued else ""))
+    unmatched = sorted(wanted - matched - {"ALL"})
+    if unmatched:
+        sys.exit(f"stamped nothing for: {', '.join(unmatched)}. A source page is named by its filename, its "
+                 f"zotero_key or its citekey; `zot.py changed` lists the pages that exist.")
 
 
 def cmd_changed(a):
@@ -629,7 +642,7 @@ def main():
     sub.add_parser("clean")
     s = sub.add_parser("coverage"); s.add_argument("key"); s.add_argument("--recursive", action="store_true")
     s = sub.add_parser("fingerprint"); s.add_argument("key")
-    s = sub.add_parser("stamp"); s.add_argument("keys", nargs="+", help="citekeys, Zotero keys, or ALL")
+    s = sub.add_parser("stamp"); s.add_argument("keys", nargs="+", help="page names, citekeys, Zotero keys, or ALL")
     s = sub.add_parser("changed"); s.add_argument("--queue", action="store_true", help="add review items to pending.md")
     a = p.parse_args()
     globals()["cmd_" + a.cmd](a)
