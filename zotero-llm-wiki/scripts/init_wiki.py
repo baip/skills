@@ -137,9 +137,13 @@ def git_setup(dest, kind, gitdir):
     return (f"git directory `{gitdir}`, outside this folder, which is its work tree",
             f"- The git directory is `{gitdir}` (`git init --separate-git-dir`); this folder's `.git` is a one-line\n"
             f"  pointer file to it, so cloud sync copies only the pointer, never the object store. `core.worktree`\n"
-            f"  points back here, so `git --git-dir {gitdir} …` works from anywhere.\n"
-            f"- On another machine the synced pointer leads nowhere: clone or copy the git directory there, or delete the\n"
-            f"  pointer and run `git init --separate-git-dir <path>` again. Never let the sync service create a real `.git/`.")
+            f"  points back here, so `git --git-dir {gitdir} …` works from anywhere. If this folder moves, run\n"
+            f"  `git --git-dir {gitdir} config core.worktree <new path>`.\n"
+            f"- On another machine the synced pointer leads nowhere, so git fails in this folder there. Do not replace the\n"
+            f"  pointer on that machine: the sync service would copy the replacement back and break this machine's link.\n"
+            f"  Edit there without git and commit from this machine (the edits then show up as pre-existing changes,\n"
+            f"  AGENTS.md §2.10), or work in a clone outside the synced folder that never touches it. Never let the sync\n"
+            f"  service create a real `.git/`.")
 
 
 def create(a):
