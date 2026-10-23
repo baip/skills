@@ -79,6 +79,11 @@ def errors_for(**changes):
 
 
 check("baseline source page is valid", errors_for() == [])
+check("patent full read is valid", errors_for(item_type="patent") == [])
+check("presentation full read is valid", errors_for(item_type="presentation") == [])
+check("presentation metadata-only record is valid", errors_for(item_type="presentation", read_depth="metadata-only", read_mode="none", attachment_key=None, supplement=None) == [])
+check("patent metadata-only record is valid", errors_for(item_type="patent", read_depth="metadata-only", read_mode="none", attachment_key=None, supplement=None) == [])
+check("unknown source type rejected", any("item_type" in m for _, m in errors_for(item_type="invented-type")))
 check("impossible date rejected", any("valid YYYY-MM-DD" in m for _, m in errors_for(updated="2026-99-99")))
 check("list-valued title rejected", any("title must be a single string" in m for _, m in errors_for(title=["a", "b"])))
 check("read_depth full + read_mode none rejected", any("cannot have read_mode" in m for _, m in errors_for(read_mode="none")))
