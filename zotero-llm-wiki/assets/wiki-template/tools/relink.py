@@ -14,7 +14,7 @@ import sys
 
 sys.dont_write_bytecode = True  # no __pycache__ inside the wiki, which may be cloud-synced
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from wikimeta import DIRS, WIKI, atomic_write, in_spans, protected_spans, protected_text  # noqa: E402
+from wikimeta import DIRS, WIKI, atomic_write, in_spans, parse_frontmatter, protected_spans, protected_text  # noqa: E402
 
 LINK = re.compile(r"\[([^\[\]\n]*?)\s*↗\]\(zotero://select/library/items/(\w+)\)")
 
@@ -38,14 +38,23 @@ def relink_text(text, keys, self_name=None):
     return new, n
 
 
+def source_keys(directory):
+    """Read source identities with the same YAML parser used by lint and stamping."""
+    keys = {}
+    for filename in sorted(os.listdir(directory)):
+        if not filename.endswith(".md"):
+            continue
+        with open(os.path.join(directory, filename), encoding="utf-8") as source:
+            fields, _, errors = parse_frontmatter(source.read())
+        key = fields.get("zotero_key")
+        if not errors and fields.get("type") == "source" and isinstance(key, str) and key:
+            keys[key] = filename[:-3]
+    return keys
+
+
 def main():
     apply = "--apply" in sys.argv
-    keys = {}
-    for f in os.listdir(os.path.join(WIKI, "sources")):
-        if f.endswith(".md"):
-            m = re.search(r"^zotero_key:\s*(\w+)", open(os.path.join(WIKI, "sources", f)).read(), re.M)
-            if m:
-                keys[m.group(1)] = f[:-3]
+    keys = source_keys(os.path.join(WIKI, "sources"))
     total = 0
     for d in DIRS:
         p = os.path.join(WIKI, d)
