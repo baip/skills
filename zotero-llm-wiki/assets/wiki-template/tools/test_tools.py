@@ -27,6 +27,24 @@ def fm(s):
     return parse_frontmatter(f"---\n{s}\n---\nbody\n")
 
 
+# ---- relink discovers valid plain and quoted source identities --------------------------------
+with tempfile.TemporaryDirectory() as identity_root:
+    for filename, value in [("plain", "PLAIN001"), ("double", '\"DOUBLE01\"'), ("single", "'SINGLE01'")]:
+        with open(os.path.join(identity_root, filename + ".md"), "w") as source:
+            source.write("---\ntype: source\nzotero_key: " + value + " # identity\ncitekey: changedAlias\n---\n")
+    with open(os.path.join(identity_root, "decoy.md"), "w") as source:
+        source.write("---\ntype: concept\n---\nA body example:\nzotero_key: DECOY001\n")
+    with open(os.path.join(identity_root, "invalid.md"), "w") as source:
+        source.write('---\ntype: source\nzotero_key: "BROKEN01\n---\n')
+    found = relink.source_keys(identity_root)
+    check("relink discovers plain and both quoted YAML keys",
+          found == {"PLAIN001": "plain", "DOUBLE01": "double", "SINGLE01": "single"})
+    check("relink resolves to stable filenames rather than changed citekey aliases", found.get("DOUBLE01") == "double")
+    check("relink ignores body decoys and invalid frontmatter", "DECOY001" not in found and "BROKEN01" not in found)
+    linked, count = relink.relink_text("[Paper ↗](zotero://select/library/items/DOUBLE01)", found)
+    check("relink actually rewrites links to quoted-key source records", count == 1 and linked == "[[double|Paper]]")
+
+
 # ---- parser ----------------------------------------------------------------------------------
 check("quoted '#' is not a comment", fm('title: "Model #1"')[0].get("title") == "Model #1")
 check("comment after quoted value", fm('title: "Model #1"  # note')[0].get("title") == "Model #1")
