@@ -43,7 +43,7 @@ ALLOWED = {
     "read_depth": {"full", "partial", "abstract", "metadata-only"},
     "read_mode": {"rendered", "text-index", "mixed", "none"},
     "supplement": {"read", "skimmed", "not-read", "none"},
-    "item_type": {"review", "article", "preprint", "book", "chapter", "thesis", "software", "dataset", "conference"},
+    "item_type": {"review", "article", "preprint", "book", "chapter", "thesis", "software", "dataset", "conference", "patent", "presentation"},
     "entity_kind": {"model", "method", "software", "dataset", "benchmark", "instrument", "material", "organism", "site",
                     "group", "person"},
 }
