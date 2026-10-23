@@ -246,6 +246,10 @@ or annotations, and what the page stresses and why; use §8.2b for more than abo
    than the full main text is `partial`, with what was skipped and why (missing from Zotero, unreadable, the user's
    choice). Targeted reading to answer a question belongs to a query (§8.3) and is never presented as a completed
    ingest. Record the section→page map, transcribe equations, note what was not read.
+   **Books over 150 PDF pages** (`item_type: book`) are read in part by default: the front matter (title, contents,
+   preface) and chosen chapters, each read in full. In guided mode the user chooses the chapters; otherwise choose those
+   relevant to the item's Zotero collection and list them in the log. Record the whole book's chapter→page map, and the
+   chapters not read with the reason "book read in part".
 4. *(Guided)* **Discuss**: 3–6 takeaways, pages to touch, tensions with the wiki. Ask what to emphasize and record it
    under `## User notes`.
 5. **Write the source page**, then `zot.py stamp`.

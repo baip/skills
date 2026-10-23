@@ -32,7 +32,10 @@ filter that dropped short lines silently removed content. The rule now is to vie
 used only for search and exact quotations. Each source page records `read_depth` (full / partial / abstract /
 metadata-only) and `read_mode` (rendered / text-index / mixed / none) separately, because "read" without both is
 unverifiable. Claims may come only from parts that were read; an unread supplement can be cited only where the main text
-states its result, and then as such.
+states its result, and then as such. Books over 150 pages are the exception to the complete-read default: in the source
+wiki, 13 textbooks would have meant about 11,000 pages, and each batch needed a one-off decision that no other agent
+could repeat. They are read by chapter (the user chooses in guided mode, relevance to the collection otherwise), and
+the page records the whole chapter map so that unread chapters stay visible.
 
 ## 3. Identity and provenance
 
