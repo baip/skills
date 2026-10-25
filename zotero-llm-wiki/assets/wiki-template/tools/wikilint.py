@@ -58,7 +58,7 @@ REQUIRED = {
 LISTS = {"authors", "collections", "sources", "tags", "aliases", "zotero_tags"}
 STRINGS = {"library", "title", "venue", "citekey", "zotero_uri", "zotero_key", "attachment_key", "doi", "url", "question",
            "zotero_fingerprint", "version_of", "entity_kind", "item_type", "read_depth", "read_mode", "supplement"}
-TOOLS = ("catalog.py", "relink.py", "review.py", "test_tools.py", "wikilint.py", "wikimeta.py", "zot.py")
+TOOLS = ("catalog.py", "relink.py", "review.py", "search.py", "test_tools.py", "wikilint.py", "wikimeta.py", "zot.py")
 MODES_FOR_DEPTH = {"full": {"rendered", "text-index", "mixed"}, "partial": {"rendered", "text-index", "mixed"},
                    "abstract": {"none"}, "metadata-only": {"none"}}
 CONTRA = re.compile(r"^> \[!contradiction(\|([a-z-]+))?\]", re.M)

@@ -693,6 +693,56 @@ if shutil.which("pdftoppm") and shutil.which("pdfinfo"):
 else:
     print("skip render tests: poppler (pdftoppm, pdfinfo) not installed")
 
+# ---- search ranks pages for a query ----------------------------------------------------------
+import search  # noqa: E402
+
+
+def _page(d, text):
+    fields, body, errors = parse_frontmatter(text)
+    return dict(dir=d, path=f"{d}/x.md", fields=fields, body=body, errors=errors)
+
+
+_mention = "Charge equilibration is mentioned here among many other things. " + "Filler words about other topics. " * 60
+_PAGES = {
+    "charge-equilibration": [_page("concepts", "---\ntype: concept\n---\n# Charge equilibration (Qeq)\n\nShort definition.\n")],
+    "longSourceMentioning2020": [_page("sources", "---\ntype: source\ntitle: \"A long paper\"\nread_depth: full\n"
+                                       "collections: [\"Force Fields/Machine Learning/_root\"]\n---\n# Long\n\n"
+                                       + _mention * 3 + "\ncharge equilibration again, and charge-equilibration.\n")],
+    "behlerFourGenerations2021": [_page("sources", "---\ntype: source\ntitle: \"Four generations\"\n"
+                                        "authors: [\"Behler, J.\"]\ncitekey: behlerFourGenerations2021\nread_depth: partial\n"
+                                        "collections: [\"Porous Materials/ML\"]\n---\n# Four generations\n\n"
+                                        "Neural networks for potentials. Expected improvement is not discussed.\n"
+                                        "```\nzeolitecodeword\n```\n")],
+    "bayes-opt": [_page("concepts", "---\ntype: concept\n---\n# BO\n\nThe improvement expected from a sample.\n")],
+}
+
+
+def _hits(*terms, phrases=(), **flt):
+    a = argparse.Namespace(type=flt.get("type"), collection=flt.get("collection"), depth=flt.get("depth"))
+    return [h[2] for h in search.search(_PAGES, terms, phrases, a, 10)]
+
+
+check("search: the page named after the query outranks a long page that mentions it more often",
+      _hits("charge", "equilibration")[:1] == ["charge-equilibration"])
+check("search: hyphenated words match their parts", "longSourceMentioning2020" in _hits("equilibration"))
+check("search: plurals fold ('network' finds 'networks')", _hits("network") == ["behlerFourGenerations2021"])
+check("search: citekey and author words are searchable", _hits("behler")[:1] == ["behlerFourGenerations2021"])
+check("search: --phrase requires the words in order",
+      _hits("improvement", phrases=["expected improvement"]) == ["behlerFourGenerations2021"])
+check("search: words inside code blocks are not indexed", _hits("zeolitecodeword") == [])
+check("search: --type keeps one page type", set(_hits("charge", type="concept")) == {"charge-equilibration"})
+check("search: --collection keeps sources by collection prefix",
+      _hits("generations", "charge", collection="Porous Materials") == ["behlerFourGenerations2021"])
+check("search: --depth keeps sources read to that depth", _hits("charge", depth="full") == ["longSourceMentioning2020"])
+check("search: matched-word count is reported",
+      search.search(_PAGES, ["charge", "zzz"], (), None, 10)[0][1] == 1)
+check("search: no query words, no results", search.search(_PAGES, [], (), None, 10) == [])
+check("search: the snippet is the best-matching body line",
+      "Expected improvement" in search.snippet(_PAGES["behlerFourGenerations2021"][0]["body"],
+                                               {"expected", "improvement"}, ["expected improvement"]))
+check("search: a page without a title field is titled by its first heading",
+      search.title_of("bayes-opt", _PAGES["bayes-opt"][0]) == "BO")
+
 # ---- tools are checked against the installed skill -------------------------------------------
 _t = tempfile.mkdtemp(prefix="wiki-tools-test-")
 try:
