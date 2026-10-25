@@ -126,7 +126,7 @@ title: "…"*
 authors: ["Smith, J.", "Doe, A."]*      # quoted; first 5, then "et al."
 year: 2021*
 venue: "J. Example 12(3), 345–367"*
-item_type: review*            # review | article | preprint | book | chapter | thesis | software | dataset | conference | patent | presentation
+item_type: review*            # review | article | preprint | book | chapter | thesis | software | dataset | conference | patent | presentation | report
 library: {{LIBRARY}}*        # user:<id> or group:<id>
 zotero_key: ABCD1234*
 citekey: smithExampleStudyTitle2021*
