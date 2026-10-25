@@ -15,3 +15,5 @@ __pycache__/
 .obsidian/workspace*.json
 .obsidian/graph.json
 .*.tmp
+# qmd search index: a link to a folder outside cloud sync (or a real folder from `qmd init`); never committed
+/.qmd
