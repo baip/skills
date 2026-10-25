@@ -269,9 +269,12 @@ subagents runs the same phases in order in one session. Details in tools/README.
 
 ### 8.3 Query
 
-Find pages with `tools/search.py` (try several phrasings, synonyms and abbreviations; narrow with `--type` or
-`--collection`). Use `index.md` for orientation, its Topics, Concepts and Entities sections first; read its whole source
-list only when search cannot narrow the question. Pick pages, follow links one hop. Go back to Zotero only when the
+Find pages by search. Where qmd is set up (`.qmd` at the wiki root; tools/README.md), refresh it with `qmd update &&
+qmd embed`, then use `qmd query` with `intent:`, `lex:` and `vec:` lines you write yourself, and `qmd search` for exact
+names. Otherwise use `tools/search.py` (try several phrasings, synonyms and abbreviations; narrow with `--type` or
+`--collection`). Search results are leads: read the pages themselves before answering. Use `index.md` for orientation,
+its Topics, Concepts and Entities sections first; read its whole source list only when search cannot narrow the
+question. Pick pages, follow links one hop. Go back to Zotero only when the
 wiki lacks the detail, and then improve the wiki. Answer with citations down to source pages, keeping scope; say what
 the wiki does not cover and which Zotero items would. Offer to file substantive answers in `analyses/` (file them
 automatically if the user has said so). Log the query.
@@ -342,7 +345,8 @@ propagated, and `next:` lines.
   (`tools`) while `tools/` differs from the skill or the skill is missing.
 - **YAML parsing**: a strict, tested parser for the frontmatter subset, so the tools stay dependency-free under
   `python3 -I`. Revisit if the frontmatter outgrows the subset.
-- **Search tool**: `tools/search.py`, keyword ranking (BM25) with the standard library only. Propose a hybrid keyword
-  and vector engine (e.g. `qmd`) if questions miss pages that use different wording.
+- **Search tools**: `qmd` (optional), keyword plus vector search with reranking, run locally, with its index in
+  `.qmd` at the wiki root (git-ignored; a link to a folder outside cloud sync when this folder is synced); and
+  `tools/search.py`, keyword ranking (BM25) with the standard library only, for machines or agents without qmd.
 - **People and groups as entities**: only if they recur in ≥ 3 sources.
 - **Group libraries**: `zot.py` reads the user library only; extend it before ingesting from a group.

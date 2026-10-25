@@ -125,6 +125,38 @@ Lint checks the line format, outcome, basis length and links.
   the source pages.
 - Run `relink.py --apply` only after all reading has finished, because it rewrites files a reader may be editing.
 
+## Semantic search with qmd (optional; AGENTS.md §8.3)
+
+[qmd](https://github.com/tobi/qmd) adds keyword plus vector search with reranking, all on this machine. It indexes the
+five page folders only, never PDFs, Zotero or the bookkeeping files, so it stays within AGENTS.md §2.2. Without it,
+use `tools/search.py`.
+
+- **Install** (once per machine): `npm install -g @tobilu/qmd` (Node 22+), and on macOS `brew install sqlite`. The
+  first `embed` and `query` download three models, about 2 GB in all, to `~/.cache/qmd/models/`.
+- **Where the index lives.** `.qmd/` at the wiki root holds the index (`index.sqlite`) and its configuration
+  (`index.yml`); qmd uses it whenever it runs inside this folder. It is git-ignored. In a folder that is not
+  cloud-synced, `qmd init` makes a real `.qmd/` folder. In a cloud-synced folder (Google Drive, Dropbox, OneDrive,
+  iCloud), make `.qmd` a link to a folder outside the synced tree first, so the sync service never uploads the index.
+  Each machine builds its own index; a link synced from another machine points nowhere and must be replaced.
+- **Set up** (from the wiki root; NAME is a short name for this wiki):
+
+  ```sh
+  mkdir -p ~/.cache/qmd/projects/NAME && ln -s ~/.cache/qmd/projects/NAME .qmd   # cloud-synced folder only
+  qmd init
+  qmd collection add . --name NAME --mask "{sources,concepts,entities,topics,analyses}/*.md"
+  qmd context add qmd://NAME "<one sentence on what this wiki covers>"
+  qmd context add qmd://NAME/sources "Source pages: one per Zotero item, with what was read"   # and one per folder
+  qmd embed
+  ```
+
+- **Before each query session**: `qmd update && qmd embed`, which re-index and re-embed only pages that changed.
+- **Query**: write the structured form yourself rather than pasting the question:
+  `qmd query $'intent: <what to find, and what to avoid>\nlex: <exact terms, abbreviations, names>\nvec: <the idea in
+  the wiki's own wording>'`. Use `qmd search "<exact words>"` for names and rare terms. Useful options: `-n 10`,
+  `--format files`, `--full-path`. Treat results as leads: open the pages with the normal file reader, and cite them as
+  wiki pages, not qmd docids.
+- **Slow machines** (no GPU): `qmd query --no-rerank …`, `qmd vsearch`, or `tools/search.py`.
+
 ## Running under other coding agents
 
 Every rule is in `AGENTS.md`, which Codex and OpenCode load by themselves and Claude Code loads through `CLAUDE.md`. The
@@ -134,7 +166,9 @@ wiki needs:
 1. network access to `localhost:23119` (Zotero's local API, and Better BibTeX on the same port);
 2. writes to this folder, the system temp directory, the git directory if it is outside this folder (see Revision
    history), and the skill folder (`{{SKILL_DIR}}`) when a tool changes (AGENTS.md §12);
-3. viewing local image files (rendered PDF pages) and poppler on the `PATH`.
+3. viewing local image files (rendered PDF pages) and poppler on the `PATH`;
+4. for qmd (optional): writes to `~/.cache/qmd` (the index behind `.qmd`, and the models), and network access to
+   huggingface.co the first time the models download. Without these, use `tools/search.py`.
 
 - **Claude Code**: works as is; approve the prompts for these commands, or allow them in its settings.
 - **Codex**: its default `workspace-write` sandbox blocks network access and writes outside the folder it was started
@@ -145,7 +179,7 @@ wiki needs:
   sandbox_mode = "workspace-write"
   [sandbox_workspace_write]
   network_access = true
-  writable_roots = ["<git directory, if outside this folder>", "<skill folder, resolved>"]
+  writable_roots = ["<git directory, if outside this folder>", "<skill folder, resolved>", "<home>/.cache/qmd"]
   ```
 
   Some Codex versions keep `.git` folders read-only even inside writable roots; if a commit is refused, approve it
