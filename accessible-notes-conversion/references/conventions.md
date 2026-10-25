@@ -305,7 +305,8 @@ title in metadata, title in window bar, PDF/UA identifier, headings start at
 level 1, no skipped levels, alt text on every figure, table headers tagged,
 formula alternative text not raw LaTeX, and no character missing from the
 fonts. Check 11 depends on the TeX Live in use (see `BUILD.md`). Lines and
-tables too wide for the page are a warning.
+tables too wide for the page are a warning, and so is a page whose text runs
+past the bottom margin.
 
 Nine on each web page, from `checkweb.py`, in a real browser because the
 mathematics exists only after MathJax has run: language, one level-1

@@ -27,7 +27,8 @@ formulas whose alternative text is raw LaTeX, which is the thing to watch
 when the TeX Live in use is too old to tag mathematics properly; see
 BUILD.md. The twelfth reads the LaTeX log for characters the fonts lack,
 which LaTeX drops from the page silently. Lines or tables too wide for the
-page are reported as a warning.
+page, and pages whose text runs past the bottom margin, are reported as
+warnings.
 """
 
 import re
@@ -136,6 +137,7 @@ def walk(node, rolemap, tags, alts, formulas, depth=0, out=None):
 
 
 WIDE = []   # overfull boxes of the last document checked
+TALL = []   # (page, points) of pages whose text runs past the bottom
 
 
 def verify(pdf):
@@ -219,6 +221,19 @@ def verify(pdf):
     WIDE.extend(float(w) for w in
                 re.findall(r"Overfull \\hbox \(([0-9.]+)pt too wide\)", text)
                 if float(w) > 10)
+    # A page too tall: top floats left less room than the block of text that
+    # follows them (a display, a minipage), which cannot be split, so it runs
+    # down towards the running foot. The page is the next one shipped out.
+    # Nothing in the class prevents this without cost: placing the floats
+    # with [ht] and a larger \textfraction pushes figures pages away from
+    # their text, and shrinkable space reflows every document. A few points
+    # is invisible, so only more than 6 pt is reported.
+    TALL.clear()
+    for m in re.finditer(r"Overfull \\vbox \(([0-9.]+)pt too high\) has "
+                         r"occurred while \\output is active", text):
+        page = re.search(r"\[(\d+)", text[m.end():])
+        if float(m.group(1)) > 6:
+            TALL.append((page.group(1) if page else "?", float(m.group(1))))
 
     print(f"\npages: {len(reader.pages)}")
     print("tags: ", dict(tags))
@@ -230,6 +245,11 @@ def verify(pdf):
     if WIDE:
         print(f"  [WARN] {len(WIDE)} line(s) or table(s) too wide for the page, "
               f"by up to {max(WIDE):.0f} pt: see 'Overfull' in the .log")
+        print()
+    if TALL:
+        print(f"  [WARN] text runs past the bottom of the page, towards the "
+              f"running foot: "
+              + ", ".join(f"page {p} by {pt:.0f} pt" for p, pt in TALL))
         print()
     if failures:
         print(f"{failures} check(s) failed.")

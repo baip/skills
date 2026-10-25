@@ -208,6 +208,14 @@
 % absolutely, but it is not compatible with the tagging code, and confining
 % them per section with placeins pushes the larger ones onto pages of their
 % own. \FloatBarrier is available for a document that needs it locally.
+%
+% The cost of the "!": figures held over from one page can fill the top of
+% the next, and a display or a kept block after them that is taller than the
+% room left cannot be split, so it runs down towards the running foot.
+% buildtex.py names such a page. \textfraction does nothing while the "!" is
+% there, and dropping it with a larger \textfraction moved figures up to two
+% pages from their text across the ChE 621 notes, so the page is mended
+% locally: a shorter caption, a narrower figure, or the block moved.
 \renewcommand{\fps@figure}{!ht}
 \renewcommand{\fps@table}{!ht}
 \renewcommand{\topfraction}{0.92}
