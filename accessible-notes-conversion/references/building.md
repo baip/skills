@@ -161,7 +161,8 @@ lualatex twice so the page count in the footer settles, runs twelve
 checks, and exits non-zero if any fail: ten on the tagged structure, the
 formula-alternative check below, and one that reads the log for characters
 the fonts lack. It also warns about anything more than 10 pt too wide for
-the page. It compiles from the project root, so the class file and the
+the page, and about a page whose text runs more than 6 pt past the bottom
+margin, naming the page. It compiles from the project root, so the class file and the
 figures resolve wherever the `.tex` is, and writes the scratch files and the
 PDF beside the `.tex`.
 
@@ -219,6 +220,7 @@ together: `pdfversion=2.0, pdfstandard=ua-2`.
 | a symbol missing from the PDF, fine on the web | the text font lacks it. Write it as mathematics |
 | a figure off the bottom of a page | a figure right after a long table. Move it before the table |
 | "too wide for the page" warning | a wide table or long equation. Shorten headers, or break the equation with `aligned` |
+| "text runs past the bottom of the page" warning | figures at the top of that page left less room than the display or kept block after them. Render the page: a few points is invisible, more reaches the running foot. Shorten a caption on the page, narrow a figure, or move the block |
 | "\tag not allowed in split environment" on the web | an old `mkweb.py`; update the toolkit |
 | "Figure ??" | a `[](#fig-…)` with no figure of that id. `md2tex.py` reports these |
 | a table's cells run together on the web | not a pipe table |
