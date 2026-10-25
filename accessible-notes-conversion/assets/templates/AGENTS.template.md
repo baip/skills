@@ -40,10 +40,11 @@ reads it through `CLAUDE.md`.
   author sets it to `true`.
 - Run `python3 <skill>/scripts/notation_lint.py <doc>.md` before building.
   Fix its errors, and check its warnings against the original.
-- Look at the output: a contact sheet of every changed figure
-  (`<skill>/scripts/contact_sheet.py`) and the rendered PDF pages that hold
-  changed equations, tables and figures. Give the author the contact sheet,
-  as a file if your interface can send one, otherwise its path.
+- Look at the output: a contact sheet of every changed figure, each beside
+  its original (`<skill>/scripts/contact_sheet.py --original`), and the
+  rendered PDF pages that hold changed equations, tables and figures. Give
+  the author the contact sheet, as a file if your interface can send one,
+  otherwise its path.
 - Run `git status` before editing. Never fold the author's uncommitted
   changes into your commit, and stage the paths you changed by name.
 - Commit with the author's identity and a message listing the items. Never

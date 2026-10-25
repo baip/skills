@@ -36,7 +36,7 @@ originals/  work/    the originals and page images, untracked
 |---|---|
 | `scripts/init_project.py` | scaffold a new project, or `--update-toolkit` in an existing one |
 | `scripts/render_pages.py` | render an original's pages (and zoomed crops) to read them |
-| `scripts/contact_sheet.py` | render changed SVG figures onto one PNG to inspect and send |
+| `scripts/contact_sheet.py` | render changed SVG figures onto one PNG, each beside its original, to inspect and send |
 | `scripts/notation_lint.py` | flag notation compromises: limits in words, described annotations, flattened subscripts, letters outside the maths, bad alt blocks, glyphs the PDF font lacks |
 | `assets/toolkit/` | the build scripts and `notes.cls`, placed into a project by `init_project.py` |
 | `assets/templates/` | `contents.yaml`, an example lecture and drawing script, `.gitignore`, `package.json`, and the project's `AGENTS.md` and `CLAUDE.md` (instructions for coding agents) |
@@ -148,11 +148,13 @@ on `figlib.py`, named `fig_<doc>_<NN>_<name>.svg`, referenced from the
 Markdown relative to itself as
 `![**Title.** Long description.](../figures/fig_….svg){#fig-<doc>-<NN> width=NNN alt="…"}`
 and cited as `[](#fig-<doc>-<NN>)`. Never write a figure number by hand.
-**Read `references/figures.md` before drawing.** In short: compute curves
-from equations, centre them in the plot, start and end arrows on the
+**Read `references/figures.md` before drawing.** In short: list what the
+original shows in a file before drawing (counts, directions, what is open,
+where labels sit), compute curves from equations, centre them in the plot, start and end arrows on the
 objects, keep labels close to and clear of lines (`place_label` in dense
 plots), draw accents and circled numbers rather than typing them, size the
-viewBox to the drawing, and update the caption whenever the drawing changes.
+viewBox to the drawing, check the render beside the original, and update
+the caption whenever the drawing changes.
 
 ## 4. Build and verify
 
@@ -162,10 +164,12 @@ python3 md2tex.py <name>                  # e.g. 09_Mixtures or homework03_solut
 python3 buildtex.py <name>                # 12 checks, plus a too-wide warning
 python3 mkweb.py && python3 checkweb.py   # 9 checks per page, MathJax errors included
 python3 scripts/figures_audit.py
-python3 <skill>/scripts/contact_sheet.py work/sheet.png figures/fig_<doc>_*.svg
+python3 <skill>/scripts/contact_sheet.py work/sheet.png \
+    --original originals/<doc>.pdf PAGE X0 Y0 X1 Y1 figures/fig_<doc>_<NN>_*.svg
 ```
 
-- **Look at the output.** View the contact sheet of every changed figure and
+- **Look at the output.** View the contact sheet of every changed figure,
+  each beside its original (`--original`, before the figure it goes with), and
   render the PDF pages holding changed equations, tables and figures. Give
   the author the sheet, as a file if you can send one, otherwise its path.
 - A document held back with `checked: false` is not on the website. To test

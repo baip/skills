@@ -23,7 +23,8 @@ changes ("Figure 5: the labels overlap", "the dots do not show in the PDF",
    briefly and, where there is a choice to make, recommend one and wait for
    the author's decision before applying it across the project.
 5. **Look at the result.** Every changed figure goes on a contact sheet
-   (`scripts/contact_sheet.py`) that you inspect. Every change affecting the
+   (`scripts/contact_sheet.py`) beside its original (`--original`), and you
+   compare the two. Every change affecting the
    PDF (a glyph, a table, float placement, captions) is checked in the built
    PDF, by rendering the page, unless the author has said not to build.
 6. **Report briefly.** One line per item: what changed. Give the author

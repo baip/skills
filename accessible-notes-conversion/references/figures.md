@@ -28,15 +28,52 @@ python3 <skill>/scripts/render_pages.py originals/03.pdf work/03 --pages 4
 python3 <skill>/scripts/render_pages.py originals/03.pdf work/03 --zoom 4 0.05 0.40 0.60 0.75
 ```
 
-Write down, before coding, what the sketch actually shows: which way each
-curve bends (concave or convex, rising or falling), where each label sits
-relative to its curve, where each arrow starts and ends, which lines are
-dashed, what is open and what is closed (an inlet drawn as a gap in a
-wall is open). These are exactly the details that get lost.
+Write down, before coding, what the sketch actually shows, and keep it as a
+file, `work/<doc>/fig<NN>.txt`, one numbered item a line. These are exactly
+the details that get lost, and a list in the head is gone by the time the
+render is ready to check:
+
+- how many there are of everything that repeats: curves, isotherms, ticks,
+  hatched faces, arrows
+- which way each curve bends (concave or convex, rising or falling), and
+  where each curve starts and ends
+- which way each axis arrow points, read from the arrow in the original
+- where each label sits relative to its curve and to any wall: inside or
+  outside a container, above or below a line
+- where each arrow starts and ends, and what it runs beside
+- which lines are dashed, and what is hatched
+- what is open and what is closed (an inlet drawn as a gap in a wall is
+  open, a vessel drawn without a lid is open)
+- every mark on a letter, over it or under it.
 
 Hand sketches are rough. Keep the author's intent and make it exact: two
 arrows meant to be equal are equal, a label meant to be on a line is on it,
-a curve meant to cross another crosses it.
+a curve meant to cross another crosses it. Making a sketch exact is not the
+same as tidying it. Do not move what the original places deliberately to
+where it would be neater.
+
+These have each come back from an author as corrections:
+
+- **Hatching marks a whole face.** In a sketch of a solid, the hatched
+  region is the cut face, out to its edges. It is not a band along one
+  edge.
+- **An axis direction comes from the original,** not from the projection
+  code. Draw the arrow from the same transform as the data, then check it
+  against the sketch, since the two can disagree.
+- **A family of curves starts where the original starts it.** Hyperbolas
+  drawn from the axis start at the axis, and curves whose ends are
+  staggered end staggered.
+- **A thing drawn beside another is not that thing.** An arrow beside a
+  piston rod is not drawn on the rod, and a water line that stops at a
+  cylinder wall does not cross the cylinder.
+- **A label outside a container stays outside.** A label inside a wall
+  reads as naming what is inside.
+- **The convenient primitive decides nothing.** `rect()` closes all four
+  sides, and a straight `line()` crosses everything in its way. Draw what
+  the original draws, even when that needs a path.
+- **Marks on letters are notation.** A line under V and a bar over it mean
+  different things. Keep the original's mark and check the project's
+  conventions for what it stands for.
 
 ## 2. The drawing script
 
@@ -170,11 +207,20 @@ computed from both, not drawn separately.
 ## 9. Look at every figure you change
 
 Render and look before handing a figure back. The contact sheet puts several
-figures on one image:
+figures on one image, and `--original` sets the original beside the figure
+that follows it, at the same height:
 
 ```
-python3 <skill>/scripts/contact_sheet.py work/sheet.png figures/fig_c03_0[256]_*.svg
+python3 <skill>/scripts/contact_sheet.py work/sheet.png \
+    --original originals/03.pdf 4 0.05 0.40 0.60 0.75 figures/fig_c03_02_*.svg \
+    --original work/03/zoom-6.png figures/fig_c03_05_*.svg
 ```
+
+Pair every figure that redraws something in an original. Compare the two
+images item by item against the inventory from section 1: count the curves,
+read each arrow's direction, check what is open, where each label sits and
+what is hatched. A redraw looked at alone gets compared with a memory of the
+sketch, and that is where a reversed axis or a closed lid gets through.
 
 cairosvg renders the sheet, which is also what the PDF build uses, so what
 you see is what the PDF will show. Check each item the author raised, then
@@ -200,3 +246,8 @@ repeat the caption.
 
 When a figure changes, update the caption in the same edit: a moved label,
 a reversed arrow or a changed curvature makes the old description wrong.
+
+A caption written only from the redraw repeats the redraw's mistakes, so
+read it against the original too. Every count, direction and position it
+states should match the inventory from section 1. Where the caption and the
+original disagree, the drawing is wrong as well.
