@@ -65,7 +65,7 @@ else: reading, summarizing, cross-referencing, filing, tracking disagreements an
 ├── entities/     # named things: models, codes, datasets, benchmarks
 ├── topics/       # synthesis hubs, usually mirroring a Zotero collection
 ├── analyses/     # filed answers, comparisons, audits; assets/ holds charts the agent made
-└── tools/        # zot.py, review.py, catalog.py, wikilint.py, relink.py, wikimeta.py, test_tools.py, README.md
+└── tools/        # zot.py, review.py, catalog.py, wikilint.py, relink.py, search.py, wikimeta.py, test_tools.py, README.md
 ```
 
 - No other top-level folders without a schema change. Flat folders; page names unique across folders.
@@ -269,10 +269,12 @@ subagents runs the same phases in order in one session. Details in tools/README.
 
 ### 8.3 Query
 
-Read `index.md`, pick pages, follow links one hop. Go back to Zotero only when the wiki lacks the detail, and then
-improve the wiki. Answer with citations down to source pages, keeping scope; say what the wiki does not cover and which
-Zotero items would. Offer to file substantive answers in `analyses/` (file them automatically if the user has said
-so). Log the query.
+Find pages with `tools/search.py` (try several phrasings, synonyms and abbreviations; narrow with `--type` or
+`--collection`). Use `index.md` for orientation, its Topics, Concepts and Entities sections first; read its whole source
+list only when search cannot narrow the question. Pick pages, follow links one hop. Go back to Zotero only when the
+wiki lacks the detail, and then improve the wiki. Answer with citations down to source pages, keeping scope; say what
+the wiki does not cover and which Zotero items would. Offer to file substantive answers in `analyses/` (file them
+automatically if the user has said so). Log the query.
 
 ### 8.4 Lint
 
@@ -340,6 +342,7 @@ propagated, and `next:` lines.
   (`tools`) while `tools/` differs from the skill or the skill is missing.
 - **YAML parsing**: a strict, tested parser for the frontmatter subset, so the tools stay dependency-free under
   `python3 -I`. Revisit if the frontmatter outgrows the subset.
-- **Search tool** (e.g. `qmd`): propose one when the index and grep stop being enough (roughly past 150–300 pages).
+- **Search tool**: `tools/search.py`, keyword ranking (BM25) with the standard library only. Propose a hybrid keyword
+  and vector engine (e.g. `qmd`) if questions miss pages that use different wording.
 - **People and groups as entities**: only if they recur in ≥ 3 sources.
 - **Group libraries**: `zot.py` reads the user library only; extend it before ingesting from a group.

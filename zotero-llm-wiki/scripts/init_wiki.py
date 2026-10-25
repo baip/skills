@@ -47,7 +47,7 @@ import urllib.request
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE = os.path.join(os.path.dirname(HERE), "assets", "wiki-template")
-TOOLS = ["zot.py", "wikimeta.py", "wikilint.py", "review.py", "catalog.py", "relink.py", "test_tools.py"]
+TOOLS = ["zot.py", "wikimeta.py", "wikilint.py", "review.py", "catalog.py", "relink.py", "search.py", "test_tools.py"]
 DIRS = ["sources", "concepts", "entities", "topics", "analyses", os.path.join("analyses", "assets")]
 FILLED = ["AGENTS.md", "index.md", "log.md", os.path.join("tools", "README.md")]
 ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
