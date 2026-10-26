@@ -123,6 +123,7 @@ The `site:` block holds the project-wide settings:
 ```
 python3 mkweb.py               # builds into site/
 python3 mkweb.py --serve       # builds, then serves on http://localhost:8000
+python3 mkweb.py --serve 8080  # the same, on another port
 python3 checkweb.py            # nine accessibility checks, page by page
 ```
 

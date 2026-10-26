@@ -5,6 +5,7 @@ Build the notes into a website with Sphinx.
 Usage:
     python3 mkweb.py            # build into site/
     python3 mkweb.py --serve    # build, then serve it on http://localhost:8000
+    python3 mkweb.py --serve 8080   # the same, on another port
 
 The Markdown sources are shared with the PDF build and are not edited here.
 Sphinx reads them through MyST-Parser, which is close to pandoc's Markdown but
@@ -706,6 +707,8 @@ def build(stems):
 
 
 def main():
+    # read the port first, so a mistyped one stops before the build
+    port = serve_port() if "--serve" in sys.argv else None
     eq_alts = {}
     titles = stage(eq_alts)
     write_project(titles)
@@ -717,8 +720,19 @@ def main():
     if globals().get("BAD_TABLES"):
         # the site is still built, but the shell hears about it
         sys.exit("%d table(s) did not render" % BAD_TABLES)
-    if "--serve" in sys.argv:
-        subprocess.run([sys.executable, "-m", "http.server", "-d", str(SITE)])
+    if port:
+        subprocess.run([sys.executable, "-m", "http.server", "-d", str(SITE),
+                        port])
+
+
+def serve_port():
+    """The port given after --serve, or 8000 when none is."""
+    rest = sys.argv[sys.argv.index("--serve") + 1:]
+    if rest and not rest[0].startswith("-"):
+        if not rest[0].isdigit() or not 0 < int(rest[0]) < 65536:
+            sys.exit("--serve takes a port number, not %r" % rest[0])
+        return rest[0]
+    return "8000"
 
 
 if __name__ == "__main__":
