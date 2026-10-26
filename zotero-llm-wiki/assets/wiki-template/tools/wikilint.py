@@ -97,8 +97,8 @@ def check_fields(name, f, errs):
             if not AUTHOR.match(str(a)):
                 errs.append(("frontmatter", f"{name}: author entry {a!r} is not \"Last, F.\" (quote each author)"))
                 break
-        if not isinstance(f.get("year"), int):
-            errs.append(("frontmatter", f"{name}: year must be an integer"))
+        if not isinstance(f.get("year"), int) and f.get("year") != "undated":
+            errs.append(("frontmatter", f"{name}: year must be an integer or undated"))
         for k in ("zotero_key", "attachment_key"):
             if k in f and not KEY.match(str(f[k])):
                 errs.append(("frontmatter", f"{name}: {k}={f[k]!r} is not an 8-character Zotero key"))
