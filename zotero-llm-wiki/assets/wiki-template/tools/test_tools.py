@@ -127,6 +127,9 @@ for bad, why in [("v3", "bare version"), ("v3 biblio:0000000a abstract:none pdf:
                  ("v3 biblio:0000000a abstract:none pdf:0000000b notes:none ann:none extra:none", "unknown part")]:
     check(f"incomplete fingerprint rejected by lint ({why})",
           any("incomplete or malformed" in m for _, m in errors_for(zotero_fingerprint=bad)))
+check("undated full-read presentation is valid", errors_for(item_type="presentation", year="undated") == [])
+check("undated metadata-only record is valid", errors_for(year="undated", read_depth="metadata-only", read_mode="none", attachment_key=None, supplement=None) == [])
+check("arbitrary year string rejected", any("year must be" in m for _, m in errors_for(year="unknown")))
 check("non-integer year rejected", any("year must be" in m for _, m in errors_for(year="2021")))
 
 # ---- protected text --------------------------------------------------------------------------
