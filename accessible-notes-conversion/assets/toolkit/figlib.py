@@ -8,7 +8,10 @@ same primitives, line weights and contrast ratios. A script does
 
 Label mini-syntax used by txt():
     *x*   italic          ~x~   subscript          ^x^   superscript
-Nesting is allowed, e.g. "*C*~*V*~" or "*V*~1~^*g*^".
+    \\*   a literal asterisk, e.g. "(−*P*\\*)(−*V*)" for (−P*)(−V)
+Nesting is allowed, e.g. "*C*~*V*~" or "*V*~1~^*g*^". A bare * after the
+last italic pair, as in "*P**", also stays an asterisk, but one followed by
+more italics pairs with them, so escape it there.
 """
 
 import math
@@ -33,14 +36,16 @@ SMALL = 0.72          # relative font size inside sub/sup
 # --------------------------------------------------------------------------
 
 _TOKEN = re.compile(r"\*([^*]*)\*|~([^~]*)~|\^([^^]*)\^")
+_STAR = ""      # stands in for an escaped \* while a label is parsed
 
 
 def _runs(s, italic=False, offset=0.0):
     """Flatten the label mini-syntax into (text, italic, offset) runs."""
+    s = s.replace("\\*", _STAR)
     out, pos = [], 0
     for m in _TOKEN.finditer(s):
         if m.start() > pos:
-            out.append((s[pos:m.start()], italic, offset))
+            out.append((s[pos:m.start()].replace(_STAR, "*"), italic, offset))
         if m.group(1) is not None:
             out += _runs(m.group(1), True, offset)
         elif m.group(2) is not None:
@@ -49,7 +54,7 @@ def _runs(s, italic=False, offset=0.0):
             out += _runs(m.group(3), italic, offset + SUP_SHIFT)
         pos = m.end()
     if pos < len(s):
-        out.append((s[pos:], italic, offset))
+        out.append((s[pos:].replace(_STAR, "*"), italic, offset))
     return out
 
 

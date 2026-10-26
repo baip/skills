@@ -167,6 +167,13 @@ browsers for the web), so a label typed with one shows a dotted circle.
 - Circled digits, primes, and other rare symbols: draw them, or use a plain
   alternative ("state 1", `*x*'` is fine as an ASCII apostrophe in the
   mini-syntax).
+- An asterisk inside a label, as in P*, is written `\*` when more italics
+  follow it: `"(−*P*\*)(−*V*)"`. A bare `*` pairs with the next italic
+  marker and garbles the rest of the label. The asterisk operator ∗ is a
+  missing glyph, and a superscript `^*^` comes out too small.
+- `label()` measures each segment in DejaVu Sans, and a renderer that
+  substitutes a narrower font leaves a gap after every segment. Split a
+  label into segments only where an accent needs it.
 
 ## 6. Plots
 
