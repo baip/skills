@@ -66,9 +66,11 @@ FRONT = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 # The caption sits on one line, because the Markdown is written with
 # --wrap=none. Matching without DOTALL keeps one figure from swallowing the
 # next, and the caption may itself contain brackets, so ] is only a terminator
-# when a ( follows it.
-IMG = re.compile(r'^!\[((?:[^\]\n]|\](?!\())*)\]\(([^)\s]+)\)\{([^}]*)\}\s*$',
-                 re.M)
+# when a ( follows it. A cross-reference in the caption, [](#fig-c07-03), has
+# its ]( too, and is taken whole, or the line would not match at all and the
+# figure, with every reference to it, would drop out of the page.
+IMG = re.compile(r'^!\[((?:[^\]\n]|\]\(#[\w-]+\)|\](?!\())*)\]\(([^)\s]+)\)'
+                 r'\{([^}]*)\}\s*$', re.M)
 ATTR = re.compile(r'(\w+)="([^"]*)"')
 
 
