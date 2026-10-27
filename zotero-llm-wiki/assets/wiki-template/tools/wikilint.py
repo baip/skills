@@ -5,7 +5,7 @@ Errors (must be fixed):
   frontmatter   unparseable frontmatter, missing or mistyped fields, values outside the permitted sets (a full or
                 partial read must record `supplement`)
   identity      duplicate (library, zotero_key), a page name used in two folders or clashing with a root file
-  broken link   wikilink to a page that does not exist
+  broken link   wikilink to a page that does not exist (log.md and reviewed.md are history and not checked)
   sources       sources: lists an unknown page, misses a cited source, or lists one never cited
   callout       [!contradiction] without a status (open|scope|superseded|corrected)
   pending       a pending.md checkbox line that cannot be read, or a completed item left in place
@@ -37,6 +37,7 @@ DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 KEY = re.compile(r"^[A-Z0-9]{8}$")
 AUTHOR = re.compile(r"^(et al\.|[^,]+, [^,]+)$")  # "Last, F." or "et al."
 ROOT_FILES = {"index", "log", "pending", "reviewed", "AGENTS", "CLAUDE", "llm-wiki"}
+HISTORY_FILES = {"log", "reviewed"}  # append-only records: their links are history, not navigation
 LIBRARY = re.compile(r"^(user|group):(\d+)$")
 ALLOWED = {
     "type": {"source", "concept", "entity", "topic", "analysis"},
@@ -220,6 +221,8 @@ def main():
                 errs.append(("callout", f"{name} (body line {line}): [!contradiction] needs |open, |scope, |superseded or |corrected"))
 
     for n, text in specials.items():
+        if n in HISTORY_FILES:
+            continue  # history may name pages since merged, renamed or removed
         for t in links(text):
             if t not in pages and t not in specials:
                 errs.append(("broken link", f"{n} -> [[{t}]]"))
@@ -243,10 +246,6 @@ def main():
     records, problems = ledger_parse()
     for msg in problems:
         errs.append(("ledger", f"reviewed.md {msg}"))
-    for _, _, _, plist, _ in records:
-        for page in plist:
-            if page not in pages:
-                errs.append(("broken link", f"reviewed.md -> [[{page}]]"))
 
     import catalog
     for path, _, label in catalog.plan():

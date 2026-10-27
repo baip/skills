@@ -379,6 +379,16 @@ with tempfile.TemporaryDirectory() as tmp:
         check("seq: but dependents stay queued (stamp does not clear them)", set(DEPS) <= set(queued()))
         clear_queue()
         check("seq: gate passes once reviews are done", lint_strict()[0] == 0)
+        with open(wikimeta.REVIEWED, "a") as _f:
+            _f.write("- 2026-10-26 not-affected (cause: wiki:s1@abcd1234) [[merged-away]] — page later merged into another\n")
+        with open(os.path.join(tmp, "log.md"), "a") as _f:
+            _f.write("\n## [2026-10-26] fix | Merged [[merged-away]] into another page\n- history\n")
+        check("lint: links in reviewed.md and log.md to a removed page are history, not errors", lint_strict()[0] == 0)
+        _idx = os.path.join(tmp, "index.md"); _old_idx = open(_idx).read()
+        open(_idx, "a").write("- [[merged-away|Gone]] — stale line\n")
+        _code, _out = lint_strict()
+        check("lint: the same link in index.md is still a broken link", _code == 1 and "index -> [[merged-away]]" in _out)
+        open(_idx, "w").write(_old_idx)
 
         STATE["pos"] = "p2"  # highlight moved; agent re-stamps WITHOUT running `changed --queue` first
         fake_zotero()
@@ -551,8 +561,8 @@ with tempfile.TemporaryDirectory() as tmp:
         with open(wikimeta.REVIEWED, "a") as f:
             f.write("- 2026-10-18 fine (cause: wiki:c1@x) [[t1]] — whatever was checked\n- 2026-10-18 unchanged (cause: wiki:c1@x) [[nope]] — basis long enough\n- garbage line\n")
         code, out = lint_strict()
-        check("ledger: unknown outcome, broken link and malformed line are errors",
-              code == 1 and "unknown outcome" in out and "reviewed.md -> [[nope]]" in out and "not in the form" in out)
+        check("ledger: unknown outcome and malformed line are errors; a link to a missing page is history, not an error",
+              code == 1 and "unknown outcome" in out and "not in the form" in out and "[[nope]]" not in out)
         open(wikimeta.REVIEWED, "w").write(wikimeta.LEDGER_HEADER)
 
         # ---- sixth review: a missing Last-Modified-Version must not pass as a consistent snapshot ----
