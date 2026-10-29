@@ -106,6 +106,20 @@ check("report metadata-only record is valid", errors_for(item_type="report", rea
 check("webpage metadata-only record is valid", errors_for(item_type="webpage", authors=[], year="undated", read_depth="metadata-only", read_mode="none", attachment_key=None, supplement=None) == [])
 check("empty authors remain invalid for full reads", any("missing authors" in m for _, m in errors_for(authors=[])))
 check("absent authors remain invalid for metadata-only", any("missing authors" in m for _, m in errors_for(authors=None, read_depth="metadata-only", read_mode="none", attachment_key=None, supplement=None)))
+check("explicitly uncredited full source is valid", errors_for(authors=[], author_status="uncredited") == [])
+check("explicitly uncredited partial source is valid", errors_for(authors=[], author_status="uncredited", read_depth="partial") == [])
+check("uncredited flag cannot coexist with a named author", any("requires authors: []" in m for _, m in errors_for(author_status="uncredited")))
+check("unknown authorship status rejected", any("author_status" in m for _, m in errors_for(author_status="guessed")))
+_author_errors = []
+wikilint.check_author_credit("x", dict(BASE, authors=[], author_status="uncredited"), "> [!note] Reading history\n> No credited author: all rendered pages checked, no author credit appears.", _author_errors)
+check("uncredited source records rendered evidence", _author_errors == [])
+_author_errors = []
+wikilint.check_author_credit("x", dict(BASE, authors=[], author_status="uncredited"), "Reading history without credit evidence", _author_errors)
+check("uncredited source requires credit evidence", any("No credited author" in m for _, m in _author_errors))
+check("uncredited source requires rendered coverage", any("requires a full or partial rendered" in m for _, m in errors_for(authors=[], author_status="uncredited", read_mode="text-index", attachment_key=None)))
+_author_errors = []
+wikilint.check_author_credit("x", dict(BASE, authors=[], author_status="uncredited"), "No credited author: outside history.\n\n> [!note] Reading history\n> Document read.", _author_errors)
+check("uncredited evidence belongs in Reading history", any("No credited author" in m for _, m in _author_errors))
 check("unknown source type rejected", any("item_type" in m for _, m in errors_for(item_type="invented-type")))
 check("impossible date rejected", any("valid YYYY-MM-DD" in m for _, m in errors_for(updated="2026-99-99")))
 check("list-valued title rejected", any("title must be a single string" in m for _, m in errors_for(title=["a", "b"])))
