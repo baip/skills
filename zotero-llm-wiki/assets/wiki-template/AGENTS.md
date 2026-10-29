@@ -124,6 +124,7 @@ Fields marked *generated* are written by tools, never by hand.
 type: source*
 title: "…"*
 authors: ["Smith, J.", "Doe, A."]*      # quoted; first 5, then "et al."
+corporate_authors: []        # optional exact organization names also listed in authors
 year: 2021*                  # integer year, or undated when no date can be verified
 venue: "J. Example 12(3), 345–367"*
 item_type: review*            # review | article | preprint | book | chapter | thesis | software | dataset | conference | patent | presentation | report
@@ -152,6 +153,10 @@ map of `zotero://open-pdf/library/items/<attachment_key>?page=N` links, N = 1-ba
 contributions` (3–7 bullets); `## Methods / setup`; `## Results and claims` (each with scope and locator); `## Limitations
 and caveats` (the authors', then the agent's, marked); `## Connections` (links here are not evidence); `## User notes`
 (the user's emphasis, `> [!user]` blocks, and a `> [!note] Reading history` with dates and exactly what was read).
+
+Keep `authors` in credited order. Optional `corporate_authors` identifies organization names exactly as they occur in
+`authors`. Its entries must be nonempty strings, without duplicates, and each must occur in `authors`. Only declared
+organizations are exempt from the personal-name format. Do not add artificial personal-name punctuation to institutions.
 
 Use `year: undated` only when no publication date can be verified. Explain the missing date in Reading history and display “undated” in the source heading. Never substitute a guessed year or numeric placeholder.
 

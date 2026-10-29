@@ -56,7 +56,7 @@ REQUIRED = {
     "topic": ["zotero_collections", "sources", "created", "updated"],
     "analysis": ["question", "sources", "created"],
 }
-LISTS = {"authors", "collections", "sources", "tags", "aliases", "zotero_tags"}
+LISTS = {"authors", "corporate_authors", "collections", "sources", "tags", "aliases", "zotero_tags"}
 STRINGS = {"library", "title", "venue", "citekey", "zotero_uri", "zotero_key", "attachment_key", "doi", "url", "question",
            "zotero_fingerprint", "version_of", "entity_kind", "item_type", "read_depth", "read_mode", "supplement"}
 TOOLS = ("catalog.py", "relink.py", "review.py", "search.py", "test_tools.py", "wikilint.py", "wikimeta.py", "zot.py")
@@ -94,8 +94,24 @@ def check_fields(name, f, errs):
             if not ok:
                 errs.append(("frontmatter", f"{name}: {field}={f[field]!r} is not a valid YYYY-MM-DD date"))
     if typ == "source":
-        for a in f["authors"] if isinstance(f.get("authors"), list) else []:
-            if not AUTHOR.match(str(a)):
+        authors = f["authors"] if isinstance(f.get("authors"), list) else []
+        corporate = f.get("corporate_authors", [])
+        declared_corporate = set()
+        if isinstance(corporate, list):
+            seen_corporate = set()
+            for author in corporate:
+                if not isinstance(author, str) or not author.strip():
+                    errs.append(("frontmatter", f"{name}: corporate_authors entries must be nonempty strings"))
+                    continue
+                if author in seen_corporate:
+                    errs.append(("frontmatter", f"{name}: duplicate corporate_authors entry {author!r}"))
+                seen_corporate.add(author)
+                if author not in authors:
+                    errs.append(("frontmatter", f"{name}: corporate_authors entry {author!r} is not in authors"))
+                else:
+                    declared_corporate.add(author)
+        for a in authors:
+            if not (isinstance(a, str) and a in declared_corporate) and not AUTHOR.match(str(a)):
                 errs.append(("frontmatter", f"{name}: author entry {a!r} is not \"Last, F.\" (quote each author)"))
                 break
         if not isinstance(f.get("year"), int) and f.get("year") != "undated":
