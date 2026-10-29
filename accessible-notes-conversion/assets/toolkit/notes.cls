@@ -99,8 +99,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \renewcommand{\headrulewidth}{0pt}
+% The page total is the kernel's \PreviousTotalPages, which the .aux
+% records at the very end of the run. A \label written by \AtEndDocument
+% was used before, and it is lost when the text fills the last page to
+% its foot: the label falls onto an empty page that is never shipped out,
+% and the footer reads "page 1 of ??".
 \fancyfoot[C]{\sffamily\fontsize{8.5}{10}\selectfont\color{nt@faint}%
-  \nt@runningfoot{} — page \thepage{} of \pageref*{nt@lastpage}}
+  \nt@runningfoot{} — page \thepage{} of \PreviousTotalPages}
 
 % ------------------------------------------------------------- shaded blocks
 % framed's \FrameCommand is redefined per environment so each block gets its
@@ -252,7 +257,5 @@
 
 \hypersetup{colorlinks=true,linkcolor=nt@accent,urlcolor=nt@accent,
             pdfdisplaydoctitle=true}
-
-\AtEndDocument{\label{nt@lastpage}}
 
 \endinput
