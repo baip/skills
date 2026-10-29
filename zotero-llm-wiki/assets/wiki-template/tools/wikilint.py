@@ -44,7 +44,7 @@ ALLOWED = {
     "read_depth": {"full", "partial", "abstract", "metadata-only"},
     "read_mode": {"rendered", "text-index", "mixed", "none"},
     "supplement": {"read", "skimmed", "not-read", "none"},
-    "item_type": {"review", "article", "preprint", "book", "chapter", "thesis", "software", "dataset", "conference", "patent", "presentation", "report"},
+    "item_type": {"review", "article", "preprint", "book", "chapter", "thesis", "software", "dataset", "conference", "patent", "presentation", "report", "webpage"},
     "entity_kind": {"model", "method", "software", "dataset", "benchmark", "instrument", "material", "organism", "site",
                     "group", "person"},
 }
@@ -74,6 +74,8 @@ def check_fields(name, f, errs):
         errs.append(("frontmatter", f"{name}: missing/unknown type {typ!r}"))
         return
     for field in REQUIRED[typ]:
+        if field == "authors" and f.get(field) == [] and f.get("read_depth") == "metadata-only":
+            continue
         if f.get(field) in (None, "", [], {}):
             errs.append(("frontmatter", f"{name}: missing {field}"))
     for field, allowed in ALLOWED.items():
