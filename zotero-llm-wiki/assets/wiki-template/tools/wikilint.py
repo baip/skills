@@ -11,6 +11,7 @@ Errors (must be fixed):
   pending       a pending.md checkbox line that cannot be read, or a completed item left in place
   ledger        a reviewed.md line that cannot be read, has an unknown outcome, or lacks a basis
   provenance    a read source page without zotero_fingerprint / zotero_checked
+  authorship    explicitly uncredited work lacks evidence or contradicts a nonempty author list
   consistency   fields that contradict each other (read_depth vs read_mode, uri vs key, citekey vs filename, version_of)
 Warnings (judgment calls; `--strict` makes them fail too, which is the ingest completion gate, AGENTS.md §8.2):
   index drift   page not listed in index.md
@@ -44,6 +45,7 @@ ALLOWED = {
     "read_depth": {"full", "partial", "abstract", "metadata-only"},
     "read_mode": {"rendered", "text-index", "mixed", "none"},
     "supplement": {"read", "skimmed", "not-read", "none"},
+    "author_status": {"uncredited"},
     "item_type": {"review", "article", "preprint", "book", "chapter", "thesis", "software", "dataset", "conference", "patent", "presentation", "report", "webpage"},
     "entity_kind": {"model", "method", "software", "dataset", "benchmark", "instrument", "material", "organism", "site",
                     "group", "person"},
@@ -58,12 +60,13 @@ REQUIRED = {
 }
 LISTS = {"authors", "corporate_authors", "collections", "sources", "tags", "aliases", "zotero_tags"}
 STRINGS = {"library", "title", "venue", "citekey", "zotero_uri", "zotero_key", "attachment_key", "doi", "url", "question",
-           "zotero_fingerprint", "version_of", "entity_kind", "item_type", "read_depth", "read_mode", "supplement"}
+           "zotero_fingerprint", "version_of", "entity_kind", "item_type", "read_depth", "read_mode", "supplement", "author_status"}
 TOOLS = ("catalog.py", "relink.py", "review.py", "search.py", "test_tools.py", "wikilint.py", "wikimeta.py", "zot.py")
 MODES_FOR_DEPTH = {"full": {"rendered", "text-index", "mixed"}, "partial": {"rendered", "text-index", "mixed"},
                    "abstract": {"none"}, "metadata-only": {"none"}}
 CONTRA = re.compile(r"^> \[!contradiction(\|([a-z-]+))?\]", re.M)
 CONTRA_STATUS = {"open", "scope", "superseded", "corrected"}
+AUTHOR_REASON = re.compile(r"No credited author: *\S", re.I)
 SUPP_REASON = re.compile(r"Supplement not read: *\S", re.I)
 ZLINK = re.compile(r"\]\(zotero://select/library/items/(\w+)\)")
 
@@ -74,7 +77,8 @@ def check_fields(name, f, errs):
         errs.append(("frontmatter", f"{name}: missing/unknown type {typ!r}"))
         return
     for field in REQUIRED[typ]:
-        if field == "authors" and f.get(field) == [] and f.get("read_depth") == "metadata-only":
+        if field == "authors" and f.get(field) == [] and (f.get("read_depth") == "metadata-only" or
+                (f.get("read_depth") in ("full", "partial") and f.get("author_status") == "uncredited")):
             continue
         if f.get(field) in (None, "", [], {}):
             errs.append(("frontmatter", f"{name}: missing {field}"))
@@ -97,6 +101,10 @@ def check_fields(name, f, errs):
                 errs.append(("frontmatter", f"{name}: {field}={f[field]!r} is not a valid YYYY-MM-DD date"))
     if typ == "source":
         authors = f["authors"] if isinstance(f.get("authors"), list) else []
+        if f.get("author_status") == "uncredited" and f.get("authors") != []:
+            errs.append(("authorship", f"{name}: author_status: uncredited requires authors: []"))
+        if f.get("author_status") == "uncredited" and (f.get("read_depth") not in ("full", "partial") or f.get("read_mode") not in ("rendered", "mixed")):
+            errs.append(("authorship", f"{name}: author_status: uncredited requires a full or partial rendered document read"))
         corporate = f.get("corporate_authors", [])
         declared_corporate = set()
         if isinstance(corporate, list):
@@ -174,6 +182,14 @@ def check_tools(wiki, warns, template=None):
                                    "init_wiki.py --upgrade-tools (AGENTS.md §12)"))
 
 
+def check_author_credit(name, fields, body, errs):
+    if fields.get("type") != "source" or fields.get("author_status") != "uncredited":
+        return
+    history = re.search(r"(?im)^> \[!note\] Reading history\s*\n((?:>[^\n]*(?:\n|$))*)", body)
+    if not history or not AUTHOR_REASON.search(history.group(1)):
+        errs.append(("authorship", f'{name}: author_status: uncredited needs a line "No credited author: <evidence>" in Reading history'))
+
+
 def main():
     pages = load_pages()
     specials = {}
@@ -228,6 +244,7 @@ def main():
                 errs.append(("sources", f"{name}: cites [[{s}]] but not in sources:"))
             for s in sorted((declared & set(pages)) - cited):
                 errs.append(("sources", f"{name}: lists {s} in sources: but never cites it"))
+        check_author_credit(name, f, body, errs)
         if f.get("type") == "source" and f.get("supplement") == "not-read" and not SUPP_REASON.search(body):
             warns.append(("supplement", f"{name}: supplement: not-read needs a line \"Supplement not read: <reason>\" in the Reading history"))
         vo = f.get("version_of")

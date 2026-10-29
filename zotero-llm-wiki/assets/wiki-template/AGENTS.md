@@ -125,6 +125,7 @@ type: source*
 title: "…"*
 authors: ["Smith, J.", "Doe, A."]*      # quoted; first 5, then "et al."
 corporate_authors: []        # optional exact organization names also listed in authors
+author_status: uncredited   # optional, only when the document itself credits no author
 year: 2021*                  # integer year, or undated when no date can be verified
 venue: "J. Example 12(3), 345–367"*
 item_type: review*            # review | article | preprint | book | chapter | thesis | software | dataset | conference | patent | presentation | report | webpage
@@ -158,7 +159,7 @@ Keep `authors` in credited order. Optional `corporate_authors` identifies organi
 `authors`. Its entries must be nonempty strings, without duplicates, and each must occur in `authors`. Only declared
 organizations are exempt from the personal-name format. Do not add artificial personal-name punctuation to institutions.
 
-For a metadata-only record with no author verifiable from Zotero, use `authors: []` and explain the missing attribution in Reading history. The `authors` field remains required.
+For a metadata-only record with no author verifiable from Zotero, use `authors: []` and explain the missing attribution in Reading history. The `authors` field remains required. For a full or partial read of a document that credits no author, use `authors: []` with `author_status: uncredited` and a Reading history line "No credited author: <evidence from the rendered document>". This explicit exception must not replace a known author or turn unknown attribution in an unread document into a verified absence.
 
 Use `year: undated` only when no publication date can be verified. Explain the missing date in Reading history and display “undated” in the source heading. Never substitute a guessed year or numeric placeholder.
 
