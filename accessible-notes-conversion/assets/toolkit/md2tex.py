@@ -1087,12 +1087,21 @@ def inline_text(inls, ctx, pdfstring=False):
                 # [](#fig-c02-04) is a cross-reference, written as an ordinary
                 # Markdown link so that one source serves both builds: MyST
                 # resolves it to "Figure 4", and here it becomes the same
-                # thing through LaTeX's own numbering. A non-breaking space
-                # keeps "Figure" and its number on one line.
+                # thing through LaTeX's own numbering. The identifier's
+                # prefix says what is referred to: fig- a figure, tbl- a
+                # table, eq- a numbered equation, which prints as
+                # "Equation (3)". A non-breaking space keeps the word and its
+                # number on one line.
                 target = dest[1:]
                 REFS.add(target)
                 label = inline_text(n["c"][1], ctx) if n["c"][1] else ""
-                out.append(r"%s~\ref{%s}" % (label or "Figure", target))
+                kind = target.split("-", 1)[0]
+                if kind == "eq":
+                    out.append(r"%s~\eqref{%s}" % (label or "Equation",
+                                                     target))
+                else:
+                    out.append(r"%s~\ref{%s}" % (
+                        label or REF_WORD.get(kind, "Figure"), target))
             else:
                 out.append(r"\href{%s}{%s}" % (dest,
                                                 inline_text(n["c"][1], ctx)))
@@ -1160,7 +1169,15 @@ def block_to_tex(b, depth=0):
             for sub in inner:
                 if sub["t"] in ("Para", "Plain"):
                     ctx = plain_string(sub["c"])[:90]
-                    body = r"\[ %s \]" % to_math(sub["c"], ctx)
+                    inls, eqlabel = equation_label(sub["c"])
+                    if eqlabel:
+                        # a numbered equation that the text can refer to
+                        LABELS.add(eqlabel)
+                        body = ("\\begin{equation}\n%s\n\\label{%s}\n"
+                                "\\end{equation}"
+                                % (to_math(inls, ctx), eqlabel))
+                    else:
+                        body = r"\[ %s \]" % to_math(inls, ctx)
                     if alt:
                         body = "\\eqalt{%s}{%%\n%s}" % (esc_text(alt), body)
                     run.append(body)
@@ -1204,6 +1221,32 @@ def block_to_tex(b, depth=0):
         return b["c"][1] if b["c"][0] == "latex" else ""
     REPORT.add("unhandled block", t, "")
     return ""
+
+
+# What a cross-reference prints, by the prefix of the identifier it points
+# at. An equation is handled apart, since its number goes in parentheses.
+REF_WORD = {"fig": "Figure", "tbl": "Table"}
+
+EQ_LABEL = re.compile(r"^\{#(eq-[\w-]+)\}$")
+
+
+def equation_label(inls):
+    """Split a trailing {#eq-c10-03} off a display equation's paragraph.
+
+    Pandoc leaves the identifier as ordinary text after the mathematics, so
+    it is taken off here and returned beside what is left.
+    """
+    items = list(inls)
+    while items and items[-1]["t"] in ("Space", "SoftBreak"):
+        items.pop()
+    if items and items[-1]["t"] == "Str":
+        m = EQ_LABEL.match(items[-1]["c"])
+        if m:
+            items.pop()
+            while items and items[-1]["t"] in ("Space", "SoftBreak"):
+                items.pop()
+            return items, m.group(1)
+    return inls, None
 
 
 FIGNUM = re.compile(r"^\s*(?:Figure|Table)\s+\d+\s*[.:]\s*", re.I)
@@ -1362,15 +1405,33 @@ def table_to_tex(b):
         out.append(" & ".join(r"\theadcell{%s}" % c for c in row_cells(row))
                    + r" \\")
     out.append(r"\endhead")
+    # A table's \label goes in its first body cell: longtable has stepped
+    # the table counter and set the link target by then, and a body row,
+    # unlike the header, is set only once.
+    label = b["c"][0][0]
+    pending = (r"\label{%s}" % label) if label else ""
     for body in bodies:
         for row in body[3]:
-            out.append(" & ".join(row_cells(row)) + r" \\")
+            cells = row_cells(row)
+            if pending and cells:
+                cells[0] = pending + cells[0]
+                pending = ""
+            out.append(" & ".join(cells) + r" \\")
     out.append("\\end{longtable}")
     cap_blocks = caption[1]
+    # "Table: caption {#tbl-c10-01}" under the table gives it a caption and
+    # an identifier, which pandoc hangs on the table itself. The caption is
+    # set as a paragraph just above the table rather than as longtable's own
+    # \caption, which the tagging code would make a header cell: see
+    # \tabcaption in the class.
+    if label:
+        LABELS.add(label)
     if cap_blocks:
         ctx = plain_string(cap_blocks[0]["c"])[:70]
-        out.insert(1, r"\caption{%s} \\" % inline_text(cap_blocks[0]["c"],
-                                                        ctx))
+        out.insert(0, r"\tabcaption{%s}" % inline_text(
+            strip_figure_number(cap_blocks[0]["c"]), ctx))
+    elif label:
+        REPORT.add("table identifier without a caption", label, "")
     return "\n".join(out)
 
 
@@ -1462,10 +1523,11 @@ def convert(path):
 
     body = blocks_to_tex(doc["blocks"])
 
-    # A reference with no figure behind it compiles happily and prints
+    # A reference with nothing behind it compiles happily and prints
     # "Figure ??", so it is caught here rather than left in the PDF.
     for target in sorted(REFS - LABELS):
-        REPORT.add("cross-reference with no figure behind it", target, "")
+        REPORT.add("cross-reference with no figure, table or equation "
+                   "behind it", target, "")
 
     from datetime import date
     head = PREAMBLE.format(
