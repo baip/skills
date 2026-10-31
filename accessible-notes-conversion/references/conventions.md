@@ -277,7 +277,24 @@ builds and as a live link on the web. `mkweb.py` renumbers each page from 1,
 because Sphinx otherwise numbers continuously across the site. A number that
 refers to the printed original ("Figure 7.2 of the text") stays plain text.
 
+Tables and equations are numbered and referred to the same way.
+
+- **A table** takes a caption and an identifier from a pandoc caption line
+  under it: `Table: **Short title.** Any description. {#tbl-c10-02}`. The
+  caption is set above the table in both builds, and `[](#tbl-c10-02)`
+  prints "Table 2". The identifier is `tbl-<doc>-<NN>`, numbered in the order
+  the tables appear. A table without a caption line is not numbered.
+- **An equation** the text refers to ends with its identifier, inside its
+  `::: eq` block: `$$…$$ {#eq-c10-margules}`. It is numbered (1), (2), … at
+  the right, page by page in both builds, and `[](#eq-c10-margules)` prints
+  "Equation (3)". The identifier is `eq-<doc>-<short name>`. Only equations
+  with an identifier are numbered, so do not mix them in one document with a
+  hand-written `\tag{}`, whose numbers are counted separately.
+
 Captions are flush left, ragged right, in both builds. The image is centred.
+In the PDF a table's caption is a paragraph of its own just above the table,
+not longtable's `\caption`, which the tagging code would turn into a header
+cell spanning the table and so announce with every cell.
 
 A figure that is not in the original is allowed only where it draws
 something the original states in words, and is called an addition in the

@@ -148,6 +148,9 @@ on `figlib.py`, named `fig_<doc>_<NN>_<name>.svg`, referenced from the
 Markdown relative to itself as
 `![**Title.** Long description.](../figures/fig_….svg){#fig-<doc>-<NN> width=NNN alt="…"}`
 and cited as `[](#fig-<doc>-<NN>)`. Never write a figure number by hand.
+Tables (`Table: **Title.** … {#tbl-<doc>-<NN>}` under the table) and
+equations (`$$…$$ {#eq-<doc>-<name>}`) are captioned, numbered and cited the
+same way, as `[](#tbl-…)` and `[](#eq-…)`.
 **Read `references/figures.md` before drawing.** In short: list what the
 original shows in a file before drawing (counts, directions, what is open,
 where labels sit), compute curves from equations, centre them in the plot, start and end arrows on the

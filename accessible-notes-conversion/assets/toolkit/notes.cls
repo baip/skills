@@ -236,6 +236,23 @@
 % run under the tagging code, so the header row is marked by type and space.
 \renewcommand{\arraystretch}{1.35}
 \newcommand{\theadcell}[1]{{\sffamily\bfseries #1}}
+%
+% A table's caption, written "Table: caption {#tbl-…}" under it in the
+% Markdown, is set as a paragraph of its own just above the table, in the
+% type of a figure caption. It is not longtable's \caption: the tagging code
+% makes that a header cell spanning the table, so a screen reader would
+% announce the caption as a column heading with every cell. As its own
+% paragraph it is read once, just before the table.
+%
+% longtable steps the table counter as each table starts, so the caption
+% prints the number the table is about to take, and md2tex.py puts the
+% \label inside the table, after that step, where it records the right
+% number and the table's own link target.
+\newcommand{\tabcaption}[1]{%
+  \par\addvspace{8pt}%
+  {\noindent\tablename~\the\numexpr\value{table}+1\relax:~%
+   \sffamily\fontsize{9.5}{12.5}\selectfont\RaggedRight #1\par}%
+  \nopagebreak[4]\vspace{2pt}\nopagebreak[4]}
 
 % ------------------------------------------------------------------- lists
 \setlist{topsep=4pt,itemsep=3pt,parsep=0pt,leftmargin=1.6em}

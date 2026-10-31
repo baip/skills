@@ -217,6 +217,70 @@ def check_tables(stem, body):
     return n
 
 
+TABLE_CAPTION = re.compile(r"^Table:\s+(.*?)\s*(?:\{#(tbl-[\w-]+)\})?\s*$")
+
+
+def convert_tables(text, labels):
+    """Give a captioned pipe table the MyST table directive.
+
+    The Markdown writes a caption as pandoc does, a paragraph beginning
+    "Table:" just after the table, and ends it with the table's identifier:
+    "Table: Data for chloroform … {#tbl-c10-02}". MyST reads that as an
+    ordinary paragraph, so the table and its caption are wrapped together in
+    a table directive here. The caption becomes the directive's title and
+    the identifier its :name:, which is what numfig numbers and what a
+    [](#tbl-c10-02) link resolves against. A table without a caption is left
+    alone and is not numbered.
+    """
+    lines, out, i = text.split("\n"), [], 0
+    while i < len(lines):
+        if not lines[i].startswith("|") or (out and out[-1].startswith("|")):
+            out.append(lines[i])
+            i += 1
+            continue
+        j = i
+        while j < len(lines) and lines[j].startswith("|"):
+            j += 1
+        table = lines[i:j]
+        k = j
+        while k < len(lines) and not lines[k].strip():
+            k += 1
+        m = TABLE_CAPTION.match(lines[k]) if k < len(lines) else None
+        if not m:
+            out += table
+            i = j
+            continue
+        caption, ident = m.group(1), m.group(2)
+        out.append(":::{table} %s" % caption)
+        if ident:
+            out.append(":name: %s" % ident)
+            labels.add(ident)
+        out += [""] + table + [":::"]
+        i = k + 1
+    return "\n".join(out)
+
+
+EQ_LABEL = re.compile(r"^(.*\$\$)\s*\{#(eq-[\w-]+)\}\s*$")
+
+
+def convert_equation_labels(text, labels):
+    """Number a display equation that carries an identifier.
+
+    "$$ … $$ {#eq-c10-03}" in the Markdown is the pandoc-style way of
+    writing it, and md2tex.py makes it a numbered equation. MyST's own form
+    is "$$ … $$ (eq-c10-03)", which numbers it on the page and lets the eq
+    role, which [](#eq-c10-03) is rewritten into, refer to it.
+    """
+    out = []
+    for line in text.split("\n"):
+        m = EQ_LABEL.match(line)
+        if m:
+            labels.add(m.group(2))
+            line = "%s (%s)" % (m.group(1), m.group(2))
+        out.append(line)
+    return "\n".join(out)
+
+
 MD_LINK = re.compile(r"\[[^\]]*\]\(#([\w-]+)\)")
 
 
@@ -224,19 +288,26 @@ NUMREF = re.compile(r"\[\]\(#([\w-]+)\)")
 
 
 def convert_refs(text):
-    """Turn an empty-text link to a figure into a numbered reference.
+    """Turn an empty-text link to a figure, table or equation into a numbered
+    reference.
 
     [](#fig-c02-04) is the plain-Markdown form the sources use, and MyST does
     resolve it, but it resolves it to the figure's whole caption, which here
-    is a paragraph of description. The numref role is what gives "Figure 4",
-    so the link is rewritten into it on the way in. A link written with its
-    own text, [the two-step figure](#fig-c02-04), is left alone.
+    is a paragraph of description. The numref role is what gives "Figure 4"
+    and "Table 2", so the link is rewritten into it on the way in. An
+    equation takes the eq role instead, which math_eqref_format in conf.py
+    prints as "Equation (3)". A link written with its own text,
+    [the two-step figure](#fig-c02-04), is left alone.
     """
-    return NUMREF.sub(lambda m: "{numref}`%s`" % m.group(1), text)
+    def repl(m):
+        target = m.group(1)
+        role = "eq" if target.startswith("eq-") else "numref"
+        return "{%s}`%s`" % (role, target)
+    return NUMREF.sub(repl, text)
 
 
 def check_refs(stem, body, labels):
-    """Report a cross-reference with no figure behind it.
+    """Report a cross-reference with no figure, table or equation behind it.
 
     Sphinx warns about an unresolved target but still builds the page, and
     the warning is easy to miss among the others, so the count is returned
@@ -244,8 +315,8 @@ def check_refs(stem, body, labels):
     """
     missing = sorted({m.group(1) for m in MD_LINK.finditer(body)} - labels)
     for target in missing:
-        print("%s: cross-reference to #%s, which is not a figure here"
-              % (stem, target), file=sys.stderr)
+        print("%s: cross-reference to #%s, which is not a figure, table or "
+              "equation here" % (stem, target), file=sys.stderr)
     return len(missing)
 
 
@@ -271,6 +342,7 @@ def rebase_figures(body, src_dir, dest_dir):
 
 
 DISPLAY_ANY = re.compile(r"^\$\$(.*)\$\$\s*$", re.S)
+DISPLAY_END = re.compile(r"\$\$\s*(?:\(eq-[\w-]+\))?\s*$")
 
 
 def unsplit_tagged(body):
@@ -293,7 +365,7 @@ def unsplit_tagged(body):
             continue
         # a display equation, on one line or spread over several
         j = i
-        while not (lines[j].rstrip().endswith("$$")
+        while not (DISPLAY_END.search(lines[j])
                    and (j > i or len(lines[j].strip()) > 2)):
             j += 1
             if j == len(lines):
@@ -344,10 +416,12 @@ def stage(eq_alts):
         bad_tables += check_tables(stem, body)
         alts, labels = [], set()
         body = rebase_figures(body, src.parent, (WEB / stem).parent)
+        body = convert_equation_labels(body, labels)
         body = unsplit_tagged(body)
         body = convert_divs(body, alts)
         body = convert_headings(body)
         body = convert_images(body, labels)
+        body = convert_tables(body, labels)
         bad_refs += check_refs(stem, body, labels)
         body = convert_refs(body)
         if alts:
@@ -444,7 +518,7 @@ def stage_mathjax():
 
 EQ_DIV = re.compile(
     r'(<div class="eqalt-(\d+) docutils container">)(.*?)(</div>)', re.S)
-MATH_DIV = re.compile(r'<div class="math notranslate nohighlight">')
+MATH_DIV = re.compile(r'<div class="math notranslate nohighlight"((?: id="[^"]*")?)>')
 
 
 def label_equations(eq_alts):
@@ -482,7 +556,7 @@ def label_equations(eq_alts):
             label = (alts[idx].replace("&", "&amp;").replace('"', "&quot;")
                      .replace("<", "&lt;").replace(">", "&gt;"))
             inner = MATH_DIV.sub(
-                '<div aria-hidden="true" class="math notranslate nohighlight">',
+                r'<div aria-hidden="true" class="math notranslate nohighlight"\1>',
                 m.group(3))
             total += 1
             return ('<div class="eqalt docutils container" role="math" '
@@ -500,14 +574,16 @@ def label_equations(eq_alts):
 
 
 FIGURE_TAG = re.compile(r'<figure[^>]*\bid="([^"]+)"[^>]*>(.*?)</figure>', re.S)
+TABLE_TAG = re.compile(r'<table[^>]*\bid="([^"]+)"[^>]*>(.*?)</table>', re.S)
 CAPTION_NUMBER = re.compile(r'(<span class="caption-number">)([^<]*)(</span>)')
 REF_LINK = re.compile(
-    r'(<a class="reference internal" href="#(fig-[\w-]+)"[^>]*>)(.*?)(</a>)', re.S)
-FIG_WORD = re.compile(r"\bFigure\s+\d+\b")
+    r'(<a class="reference internal" href="#((?:fig|tbl)-[\w-]+)"[^>]*>)(.*?)(</a>)',
+    re.S)
+NUMBERED_WORD = re.compile(r"\b(Figure|Table)\s+\d+\b")
 
 
 def renumber_figures(stems):
-    """Number each page's figures from 1, as its PDF does.
+    """Number each page's figures, and its tables, from 1, as its PDF does.
 
     Sphinx numbers figures continuously across the whole project, so the
     first figure of the First Law notes came out as Figure 4 on the website
@@ -519,6 +595,8 @@ def renumber_figures(stems):
     The mapping is taken from the figures themselves, in the order they
     appear, and applied to both the captions and the references, which are
     keyed by the anchor in the href rather than by the text they carry.
+    Tables are numbered the same way and for the same reason. Equations need
+    none of this: with math_numfig off, Sphinx numbers them page by page.
     """
     fixed = 0
     for stem in stems:
@@ -526,30 +604,39 @@ def renumber_figures(stems):
         if not page.exists():
             continue
         html = page.read_text(encoding="utf-8")
-        order = [m.group(1) for m in FIGURE_TAG.finditer(html)]
-        if not order:
+        number, word = {}, {}
+        for tag, name in ((FIGURE_TAG, "Figure"), (TABLE_TAG, "Table")):
+            order = [m.group(1) for m in tag.finditer(html)
+                     if CAPTION_NUMBER.search(m.group(2))]
+            for i, ident in enumerate(order):
+                number[ident], word[ident] = i + 1, name
+        if not number:
             continue
-        number = {ident: i + 1 for i, ident in enumerate(order)}
 
-        def fix_figure(m):
-            label = "Figure %d " % number[m.group(1)]
+        def fix_caption(m):
+            if m.group(1) not in number:
+                return m.group(0)
+            label = "%s %d " % (word[m.group(1)], number[m.group(1)])
             body = CAPTION_NUMBER.sub(
                 lambda c: c.group(1) + label + c.group(3), m.group(2), count=1)
             return m.group(0).replace(m.group(2), body, 1)
 
-        html = FIGURE_TAG.sub(fix_figure, html)
+        html = FIGURE_TAG.sub(fix_caption, html)
+        html = TABLE_TAG.sub(fix_caption, html)
 
         def fix_link(m):
             if m.group(2) not in number:
                 return m.group(0)
-            label = "Figure %d" % number[m.group(2)]
-            return m.group(1) + FIG_WORD.sub(label, m.group(3)) + m.group(4)
+            label = "%s %d" % (word[m.group(2)], number[m.group(2)])
+            return (m.group(1) + NUMBERED_WORD.sub(label, m.group(3))
+                    + m.group(4))
 
         html = REF_LINK.sub(fix_link, html)
         page.write_text(html, encoding="utf-8")
-        fixed += len(order)
+        fixed += len(number)
     if fixed:
-        print("numbered %d figure(s) from 1 on each page" % fixed)
+        print("numbered %d figure(s) and table(s) from 1 on each page"
+              % fixed)
 
 
 CSS = """/* Generated by mkweb.py. Edit that script rather than this file. */
@@ -571,6 +658,7 @@ body[data-theme="dark"] .flag > h4 { color: #F2A0A4; }
    caption included; the image stays centred and only the caption changes.
    Left-aligned text reads more easily than centred or justified text. */
 figure figcaption, figure figcaption p { text-align: start; }
+table caption, table caption p { text-align: start; }
 """
 
 
@@ -605,6 +693,11 @@ myst_heading_anchors = 3
 numfig = True
 numfig_format = {"figure": "Figure %s", "table": "Table %s"}
 numfig_secnum_depth = 0
+# Equations with an identifier are numbered (1), (2), … on each page, as in
+# the PDF, rather than through the whole site, and a reference to one reads
+# "Equation (3)".
+math_numfig = False
+math_eqref_format = "Equation ({number})"
 
 source_suffix = {".md": "markdown"}
 exclude_patterns = ["_build"]

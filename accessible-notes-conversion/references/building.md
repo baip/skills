@@ -129,9 +129,12 @@ python3 checkweb.py            # nine accessibility checks, page by page
 
 `mkweb.py` stages a copy of the Markdown into `web/`, adjusting it for MyST on
 the way: fenced divs become directives, image paragraphs become MyST figures
-carrying their alt text, `[](#fig-…)` becomes `` {numref}`…` ``, and the
+carrying their alt text, a pipe table with a `Table:` caption line becomes a
+MyST table directive, `$$…$$ {#eq-…}` becomes `$$…$$ (eq-…)`,
+`[](#fig-…)` and `[](#tbl-…)` become `` {numref}`…` `` and `[](#eq-…)`
+becomes `` {eq}`…` ``, and the
 frontmatter becomes the page title and subtitle. The sources are not touched.
-It also renumbers figures per page, writes `site.css`, which sets captions
+It also renumbers figures and tables per page, writes `site.css`, which sets captions
 flush left, and drops the `src/` folder from the lectures' addresses.
 
 Sphinx wraps every display equation that contains a line break (`\\`, as in
