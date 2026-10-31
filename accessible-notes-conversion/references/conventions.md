@@ -289,7 +289,9 @@ Tables and equations are numbered and referred to the same way.
   the right, page by page in both builds, and `[](#eq-c10-margules)` prints
   "Equation (3)". The identifier is `eq-<doc>-<short name>`. Only equations
   with an identifier are numbered, so do not mix them in one document with a
-  hand-written `\tag{}`, whose numbers are counted separately.
+  hand-written `\tag{}`, whose numbers are counted separately. A numbered
+  equation with a spoken form has "Equation (N)." added to that sentence by
+  both builds, so do not write the number into the `alt`.
 
 Captions are flush left, ragged right, in both builds. The image is centred.
 In the PDF a table's caption is a paragraph of its own just above the table,
