@@ -518,6 +518,7 @@ def stage_mathjax():
 
 EQ_DIV = re.compile(
     r'(<div class="eqalt-(\d+) docutils container">)(.*?)(</div>)', re.S)
+EQNO = re.compile(r'<span class="eqno">(\(\d+\))')
 MATH_DIV = re.compile(r'<div class="math notranslate nohighlight"((?: id="[^"]*")?)>')
 
 
@@ -555,6 +556,11 @@ def label_equations(eq_alts):
                 return m.group(0)
             label = (alts[idx].replace("&", "&amp;").replace('"', "&quot;")
                      .replace("<", "&lt;").replace(">", "&gt;"))
+            # The sentence replaces the formula for a screen reader, number
+            # and all, so a numbered equation's number is added to it.
+            num = EQNO.search(m.group(3))
+            if num:
+                label += " Equation %s." % num.group(1)
             inner = MATH_DIV.sub(
                 r'<div aria-hidden="true" class="math notranslate nohighlight"\1>',
                 m.group(3))

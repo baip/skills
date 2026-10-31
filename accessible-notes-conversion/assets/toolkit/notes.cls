@@ -166,6 +166,16 @@
   \tagstructbegin{tag=Formula,alt={#1}}%
   #2%
   \tagstructend}
+% The same for a numbered equation, whose number the sentence replaces too:
+% "Equation (N)." is added to it. The number is the one the equation is about
+% to take, and it is expanded here, before tagpdf sees the text, while the
+% sentence itself is passed on untouched.
+\newcommand{\eqaltnumbered}[2]{%
+  \begingroup
+  \edef\x{\endgroup\noexpand\tagstructbegin{tag=Formula,alt={\unexpanded{#1}
+    Equation (\the\numexpr\value{equation}+1\relax).}}}\x
+  #2%
+  \tagstructend}
 
 % Original page boundaries.
 \newcommand{\srcnote}[1]{%

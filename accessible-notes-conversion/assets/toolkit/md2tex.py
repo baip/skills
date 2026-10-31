@@ -1097,11 +1097,17 @@ def inline_text(inls, ctx, pdfstring=False):
                 label = inline_text(n["c"][1], ctx) if n["c"][1] else ""
                 kind = target.split("-", 1)[0]
                 if kind == "eq":
-                    out.append(r"%s~\eqref{%s}" % (label or "Equation",
-                                                     target))
+                    word = label or "Equation"
+                    tex = r"%s~\eqref{%s}" % (word, target)
+                    plain = r"%s (\getrefnumber{%s})" % (word, target)
                 else:
-                    out.append(r"%s~\ref{%s}" % (
-                        label or REF_WORD.get(kind, "Figure"), target))
+                    word = label or REF_WORD.get(kind, "Figure")
+                    tex = r"%s~\ref{%s}" % (word, target)
+                    plain = r"%s \getrefnumber{%s}" % (word, target)
+                # A heading is also a PDF bookmark, which is plain text:
+                # refcount's \getrefnumber gives the number there.
+                out.append(r"\texorpdfstring{%s}{%s}" % (tex, plain)
+                           if pdfstring else tex)
             else:
                 out.append(r"\href{%s}{%s}" % (dest,
                                                 inline_text(n["c"][1], ctx)))
@@ -1179,7 +1185,11 @@ def block_to_tex(b, depth=0):
                     else:
                         body = r"\[ %s \]" % to_math(inls, ctx)
                     if alt:
-                        body = "\\eqalt{%s}{%%\n%s}" % (esc_text(alt), body)
+                        # The spoken form stands in for the whole formula,
+                        # number and all, so a numbered equation takes the
+                        # class's \eqaltnumbered, which adds the number.
+                        cmd = "eqaltnumbered" if eqlabel else "eqalt"
+                        body = "\\%s{%s}{%%\n%s}" % (cmd, esc_text(alt), body)
                     run.append(body)
                 else:
                     flush()
