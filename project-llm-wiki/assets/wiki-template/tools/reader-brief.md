@@ -28,7 +28,7 @@ any, the cache folder for your brief, and any batch-specific notes.
    source`). LaTeX: `docs.py text main.tex` and view each figure it lists. Use extracted text to search or quote.
 3. Write `sources/<page>.md` per the source page template (tools/README.md, Schema details, Page templates): the
    frontmatter (with a one-line `summary:` of about 200 characters, `doc_kind`, `my_role`, `project` if given,
-   `doc_id`, `files`, `read_file`, `read_depth`, `read_mode`), then `# <Short title> (<doc kind>, <date>)` with a
+   `doc_id` (quoted, as `docs.py info` prints it), `files`, `read_file`, `read_depth`, `read_mode`), then `# <Short title> (<doc kind>, <date>)` with a
    TL;DR, `## Files`, `## Context`, `## Key content`, `## Claims and results` (each bullet starting with `[proposed]`,
    `[preliminary]`, `[reported]` or `[published]`, with scope and a locator: p., §, Fig., Table, slide), `## Reviewer
    feedback` (reviews only), `## Reusable material`, `## Limitations and caveats`, `## Connections`, `## User notes`

@@ -372,7 +372,7 @@ def cmd_info(a):
     print(f"file: {rel}")
     print(f"url: {file_url(path)}")
     print(f"size: {st.st_size} bytes; modified {datetime.datetime.fromtimestamp(st.st_mtime).isoformat(timespec='seconds')}")
-    print(f"sha8: {h}  (suggested doc_id for a new page: {h})")
+    print(f'sha8: {h}  (for a new page: doc_id: "{h}", quoted)')
     props = office_props(path) if ext in OFFICE and ext not in (".doc", ".ppt", ".xls", ".rtf") else \
         pdf_props(path) if ext == ".pdf" else tex_props(path) if ext == ".tex" else {}
     for k, v in props.items():

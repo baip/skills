@@ -78,7 +78,7 @@ REQUIRED = {
     "source-part": ["part_of", "created", "updated"],
 }
 LISTS = {"authors", "corporate_authors", "files", "sources", "tags", "aliases", "team", "folders"}
-STRINGS = {"title", "doc_id", "read_file", "doc_fingerprint", "version_of", "part_of", "entity_kind", "doc_kind",
+STRINGS = {"title", "read_file", "doc_fingerprint", "version_of", "part_of", "entity_kind", "doc_kind",
            "read_depth", "read_mode", "author_status", "project", "sponsor", "program", "solicitation", "status",
            "my_role", "award_number", "period", "budget", "question"}
 TOOLS = ("catalog.py", "docs.py", "relink.py", "review.py", "search.py", "split.py", "test_tools.py", "wikilint.py",
@@ -151,7 +151,9 @@ def check_fields(name, f, errs):
                 break
         if not isinstance(f.get("year"), int) and f.get("year") != "undated":
             errs.append(("frontmatter", f"{name}: year must be an integer or undated"))
-        if "doc_id" in f and not DOC_ID.match(str(f["doc_id"])):
+        if isinstance(f.get("doc_id"), int):  # all digits parse as a number, which would drop leading zeros
+            errs.append(("frontmatter", f'{name}: doc_id must be quoted, e.g. doc_id: "{f["doc_id"]:08d}"'))
+        elif "doc_id" in f and not DOC_ID.match(str(f["doc_id"])):
             errs.append(("frontmatter", f"{name}: doc_id={f['doc_id']!r} is not 8 lowercase hex digits (docs.py info)"))
         files = [str(x) for x in f["files"]] if isinstance(f.get("files"), list) else []
         for p in files:

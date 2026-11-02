@@ -119,6 +119,8 @@ check("fingerprint count must match files:", has(errors_for(doc_fingerprint="f1 
 for bad, why in [("f1", "bare version"), ("f1 zz", "malformed hash"), ("v3 biblio:0000000a abstract:none pdf:none notes:none ann:none", "Zotero format")]:
     check(f"incomplete fingerprint rejected by lint ({why})", has(errors_for(doc_fingerprint=bad), "incomplete or malformed"))
 check("doc_id must be 8 lowercase hex digits", has(errors_for(doc_id="ABCD1234"), "doc_id"))
+check("an all-digit doc_id must be quoted (a number would drop leading zeros)",
+      has(errors_for(doc_id=1234567), 'doc_id must be quoted, e.g. doc_id: "01234567"') and errors_for(doc_id="01234567") == [])
 check("partial dates accepted, malformed rejected",
       errors_for(date="2024-08") == [] and errors_for(date="2024-08-15") == [] and has(errors_for(date="Aug 2024"), "date="))
 check("empty authors invalid for full reads", has(errors_for(authors=[]), "missing authors"))
