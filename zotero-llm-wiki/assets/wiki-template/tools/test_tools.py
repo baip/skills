@@ -272,6 +272,7 @@ def source_page(cite, key, body):
     return f"""---
 type: source
 title: "Source {cite}"
+summary: "Summary of {cite}."
 authors: ["Doe, J."]
 year: 2021
 venue: "J. Test"
@@ -297,13 +298,13 @@ S1 = source_page("s1", "SRCAAAA1", "## Results and claims\nOwn results.\n")
 S2 = source_page("s2", "SRCAAAA2", "## Results and claims\nQuotes numbers from [[s1]] (Table 1).\n")   # evidence
 S3 = source_page("s3", "SRCAAAA3", "## Results and claims\nOwn results.\n\n## Connections\n[[s1]]\n")  # related work only
 S4 = source_page("s4", "SRCAAAA4", "## Results and claims\nRe-uses the [[s2]] numbers (Fig. 3).\n")    # chain s1 -> s2 -> s4
-C2 = "---\ntype: concept\nsources: [s2]\ncreated: 2026-10-18\nupdated: 2026-10-18\n---\n# c2\nBuilds on [[s2]] §2.\n"
-C3 = ("---\ntype: concept\nsources: [s3]\ncreated: 2026-10-18\nupdated: 2026-10-18\n---\n# c3\n"
+C2 = "---\ntype: concept\nsummary: \"c2 summary\"\nsources: [s2]\ncreated: 2026-10-18\nupdated: 2026-10-18\n---\n# c2\nBuilds on [[s2]] §2.\n"
+C3 = ("---\ntype: concept\nsummary: \"c3 summary\"\nsources: [s3]\ncreated: 2026-10-18\nupdated: 2026-10-18\n---\n# c3\n"
       "Extends the idea of [[c1]]; data from [[s3]].\n")
-CON = "---\ntype: concept\nsources: [s1]\ncreated: 2026-10-18\nupdated: 2026-10-18\n---\n# c1\nA claim ([[s1]] §1).\n"
-TOP = ("---\ntype: topic\nzotero_collections: {CCCCCCC1: \"C\"}\nsources: [s1, s2, s3, s4]\ncreated: 2026-10-18\nupdated: 2026-10-18\n"
+CON = "---\ntype: concept\nsummary: \"c1 summary\"\nsources: [s1]\ncreated: 2026-10-18\nupdated: 2026-10-18\n---\n# c1\nA claim ([[s1]] §1).\n"
+TOP = ("---\ntype: topic\nsummary: \"t1 summary\"\nzotero_collections: {CCCCCCC1: \"C\"}\nsources: [s1, s2, s3, s4]\ncreated: 2026-10-18\nupdated: 2026-10-18\n"
        "---\n# t1\nSynthesis ([[s1]], [[s2]], [[s3]], [[s4]]); see [[c1]], [[c2]], [[c3]] and [[a1]].\n")
-ANA = ("---\ntype: analysis\nquestion: \"q?\"\nsources: [s1]\ncreated: 2026-10-18\n---\n# a1\n"
+ANA = ("---\ntype: analysis\nsummary: \"a1 summary\"\nquestion: \"q?\"\nsources: [s1]\ncreated: 2026-10-18\n---\n# a1\n"
        "Answer resting on [[s1]] Fig. 2.\n")
 DEPS = ["a1", "c1", "c2", "s2", "s4", "t1"]  # s1's reviews: direct (a1, c1, s2, t1) + via source s2 (s4, c2); not s3, not c3
 
@@ -352,12 +353,14 @@ with tempfile.TemporaryDirectory() as tmp:
                       ("concepts/c1.md", CON), ("concepts/c2.md", C2), ("concepts/c3.md", C3),
                       ("topics/t1.md", TOP), ("analyses/a1.md", ANA)]:
         open(os.path.join(tmp, rel), "w").write(text)
-    open(os.path.join(tmp, "index.md"), "w").write("[[s1]] [[s2]] [[s3]] [[s4]] [[c1]] [[c2]] [[c3]] [[t1]] [[a1]]\n")
+    open(os.path.join(tmp, "index.md"), "w").write("# Index\n")
     open(os.path.join(tmp, "log.md"), "w").write("# Log\n")
     saved = (wikimeta.WIKI, wikimeta.PENDING, zot.PENDING, wikilint.WIKI, wikimeta.REVIEWED)
     wikimeta.WIKI = wikilint.WIKI = tmp
     wikimeta.PENDING = zot.PENDING = os.path.join(tmp, "pending.md")
     wikimeta.REVIEWED = os.path.join(tmp, "reviewed.md")
+    import catalog  # noqa: E402
+    open(os.path.join(tmp, "index.md"), "w").write(catalog.fix_index(wikimeta.load_pages(), "# Index\n", "2026-10-18"))
     try:
         STATE.update(abstract="abs", venue="J. Test", md5="m1", pos="p1")
         fake_zotero()
@@ -556,14 +559,18 @@ with tempfile.TemporaryDirectory() as tmp:
         open(c1p, "w").write(c1_text.replace("updated: 2026-10-18", "updated: 2026-10-19"))
         out = run(review.cmd_since, rev="HEAD", queue=True)
         check("since: a frontmatter-only edit is not a content change", "0 existing page(s) with changed content" in out and queued() == [])
-        open(c1p, "a").write("A corrected claim ([[s1]] §2).\n")
+        def revise_c1(line):  # rewrite c1's claim line: a changed line, not an addition
+            t = open(c1p).read().rstrip("\n").split("\n")
+            t[-1] = line
+            open(c1p, "w").write("\n".join(t) + "\n")
+        revise_c1("A corrected claim ([[s1]] §2).")
         out = run(review.cmd_since, rev="HEAD", queue=True)
         check("since: a body edit queues the page's dependents (stepwise); t1's 'see [[c1]]' pointer is not one", queued() == ["c3"])
         check("since: the cause names the revised page", all(c.startswith("wiki:c1@") for _, _, c in wikimeta.pending_parse()[0]))
         clear_queue()
 
         # ---- sixth review: resolutions are kept, so finished reviews are not queued again ----
-        open(c1p, "a").write("Another corrected claim ([[s1]] §3).\n")
+        revise_c1("Another corrected claim ([[s1]] §3).")
         run(review.cmd_since, rev="HEAD", queue=True)
         first_round = queued()
         ok = True
@@ -580,7 +587,7 @@ with tempfile.TemporaryDirectory() as tmp:
               sorted(p for r in mine for p in r[3]) == first_round and all(r[1] == "not-affected" for r in mine))
         out = run(review.cmd_since, rev="HEAD", queue=True)
         check("ledger: repeating since with the same revision queues nothing", queued() == [] and f"{len(first_round)} already resolved" in out)
-        open(c1p, "a").write("A third change ([[s1]] §4).\n")
+        revise_c1("A third change ([[s1]] §4).")
         run(review.cmd_since, rev="HEAD", queue=True)
         check("ledger: a new revision of the cause is queued again", queued() == first_round)
         check("ledger: strict lint passes with a valid ledger and fails with open items", lint_strict()[0] == 1)
@@ -633,9 +640,23 @@ with tempfile.TemporaryDirectory() as tmp:
               sorted(wikimeta.propagate(fp, "c9")) == ["a9", "s9"])
         fp2 = fake_pages(s8=("sources", "x"), s9=("sources", "Quotes [[s8]] Table 1."), t9=("topics", "Cites [[s9]] Fig. 1."))
         check("propagation: a source change still chains through quoting sources", sorted(wikimeta.propagate(fp2, "s8")) == ["s9", "t9"])
-        open(c1p, "a").write("A locator fix ([[s1]] §4.1).\n")
+        revise_c1("A locator fix ([[s1]] §4.1).")
         out = run(review.cmd_since, rev="HEAD", queue=True, neutral=["c1"])
         check("since: a page named --neutral is listed but not propagated", queued() == [] and "claim-neutral" in out)
+        revise_c1("A claim ([[s1]] §1).")  # back to the committed body
+        open(c1p, "a").write("\nA new claim from a new paper ([[s2]] §5).\n")
+        out = run(review.cmd_since, rev="HEAD", queue=True)
+        check("since: an edit that only inserts lines is additive and not propagated",
+              queued() == [] and "1 additive edit(s)" in out and "0 existing page(s) with changed content" in out)
+        open(c1p, "a").write("> [!contradiction|open] New data question the c1 claim\n")
+        out = run(review.cmd_since, rev="HEAD", queue=True)
+        check("since: an inserted [!contradiction] callout still propagates", queued() == ["c3"])
+        clear_queue()
+        check("additive: a changed or deleted line is not additive, blank lines are ignored",
+              not review.additive("---\n---\na\nb\n", "---\n---\na\nB\n") and
+              not review.additive("---\n---\na\nb\n", "---\n---\na\n") and
+              review.additive("---\n---\na\n\nb\n", "---\n---\na\nb\nc\n"))
+        revise_c1("A locator fix ([[s1]] §4.1).")
         import catalog  # noqa: E402
         c3p = os.path.join(tmp, "concepts/c3.md")
         c3_text = open(c3p).read()
@@ -649,6 +670,16 @@ with tempfile.TemporaryDirectory() as tmp:
         check("catalog: --apply re-derives sources: from the body",
               wikimeta.parse_frontmatter(open(c3p).read())[0]["sources"] == ["s3"])
         check("catalog: abbreviations", catalog.abbrev("Force Fields/Machine Learning/Active learning") == "FF/ML/Active learning")
+        _idx_text = open(os.path.join(tmp, "index.md")).read()
+        check("catalog: index lines are generated from summary: fields, sources displayed as 'Author year, title'",
+              "- [[s1|Doe 2021, Source s1]] — Summary of s1. · C · full" in _idx_text and
+              "- [[c1]] — c1 summary · 2 sources" in _idx_text)
+        _nav = catalog.nav(wikimeta.load_pages(), _idx_text)
+        check("catalog: --nav leaves out the Sources section", "## Sources" not in _nav and "## Concepts" in _nav and "[[c1]]" in _nav)
+        _fb = catalog.index_summaries("## Concepts\n- [[c9|Nine]] — kept editorial text · 3 sources\n")
+        check("catalog: an index line's summary is read without its generated metadata", _fb == {"c9": "kept editorial text"})
+        check("catalog: summaries with quotes and backslashes survive YAML quoting",
+              wikimeta.parse_value(catalog.yaml_quote('a "b" \\c')) == 'a "b" \\c')
 
         # ---- version_of: the earlier version of a cited work is integrated, not unintegrated (AGENTS.md §4) ----
         vp = {"later": [dict(dir="sources", body="x", fields={"zotero_key": "VERKEYL1", "read_depth": "full"})],
@@ -783,6 +814,27 @@ check("search: the snippet is the best-matching body line",
                                                {"expected", "improvement"}, ["expected improvement"]))
 check("search: a page without a title field is titled by its first heading",
       search.title_of("bayes-opt", _PAGES["bayes-opt"][0]) == "BO")
+
+# ---- split.py moves a section verbatim to a child page ----------------------------------------
+import split  # noqa: E402
+_parent = ("---\ntype: concept\nsummary: \"p\"\ntags: [a, b]\nsources: [s1]\ncreated: 2026-10-18\nupdated: 2026-10-18\n---\n"
+           "# P\n\n## Details\n\n### 1. First part\nClaim one ([[s1]] §1).\n\n#### Sub\nMore.\n```\n### not a heading\n```\n"
+           "\n### 2. Second part\nClaim two.\n\n## Related\n")
+_pn, _cn = split.plan_split(_parent, "1. First part", "p-first", "One line.", "First part", "p", "2026-11-01")
+check("split: the section moves verbatim, the parent keeps its heading and a pointer line",
+      "Claim one ([[s1]] §1)." in _cn and "Claim one" not in _pn and "### 1. First part\n\nOne line. → [[p-first]]\n" in _pn
+      and "### 2. Second part\nClaim two." in _pn)
+check("split: subheadings are re-levelled under ## Details, fenced code is left alone",
+      "## Details\n\nClaim one" in _cn and "\n### Sub\n" in _cn and "\n### not a heading\n" in _cn)
+check("split: the child is a parseable concept page with the parent's tags and the summary",
+      parse_frontmatter(_cn)[0].get("summary") == "One line." and parse_frontmatter(_cn)[0].get("tags") == ["a", "b"]
+      and parse_frontmatter(_cn)[2] == [])
+try:
+    split.plan_split(_parent, "Missing", "x", "y", "t", "p", "2026-11-01")
+    _ok = False
+except ValueError:
+    _ok = True
+check("split: a heading that is not found exactly once is refused", _ok)
 
 # ---- tools are checked against the installed skill -------------------------------------------
 _t = tempfile.mkdtemp(prefix="wiki-tools-test-")

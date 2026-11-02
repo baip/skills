@@ -65,7 +65,7 @@ else: reading, summarizing, cross-referencing, filing, tracking disagreements an
 ├── entities/     # named things: models, codes, datasets, benchmarks
 ├── topics/       # synthesis hubs, usually mirroring a Zotero collection
 ├── analyses/     # filed answers, comparisons, audits; assets/ holds charts the agent made
-└── tools/        # zot.py, review.py, catalog.py, wikilint.py, relink.py, search.py, wikimeta.py, test_tools.py, README.md
+└── tools/        # zot.py, review.py, catalog.py, wikilint.py, relink.py, search.py, split.py, wikimeta.py, test_tools.py, README.md
 ```
 
 - No other top-level folders without a schema change. Flat folders; page names unique across folders.
@@ -99,6 +99,10 @@ else: reading, summarizing, cross-referencing, filing, tracking disagreements an
   - a reviewed page propagates further only if the review changed it (`review.py touched` or `since`);
   - a **claim-neutral** edit (a locator, a typo, wording that keeps the meaning) is not propagated: pass it to
     `review.py since --neutral` and list it in the log;
+  - an **additive** edit (whole lines inserted, no existing line changed or deleted) is not propagated:
+    `review.py since` detects and lists it, and the log counts it. An inserted `[!contradiction]` or `[!stale]`
+    callout still propagates, and an insertion that narrows an existing claim must also edit that claim (§6.8),
+    which propagates (rule added 2026-11-01 to control ingest cost);
   - **a corrected claim is also searched for by its wording.** Citation links miss pages that restate the same
     conclusion from the same sources without citing the corrected page. After correcting a claim, run
     `review.py restated PAGE --phrase "…"` with the key phrases of the *old* wording (2–3 distinctive phrases, numbers
@@ -123,6 +127,7 @@ Fields marked *generated* are written by tools, never by hand.
 ---
 type: source*
 title: "…"*
+summary: "…"*               # one line, about 200 characters: the page's index entry (§9)
 authors: ["Smith, J.", "Doe, A."]*      # quoted; first 5, then "et al."
 corporate_authors: []        # optional exact organization names also listed in authors
 author_status: uncredited   # optional, only when the document itself credits no author
@@ -167,10 +172,10 @@ Use `year: undated` only when no publication date can be verified. Explain the m
 
 | Type | Frontmatter | Body |
 |---|---|---|
-| concept `concepts/<name>.md` | `type`*, `aliases`, `tags`, `sources`* (generated), `created`*, `updated`* | definition paragraph; `## Details`; `## Variants / approaches`; `## Evidence and debates`; `## Open questions`; `## Related` |
+| concept `concepts/<name>.md` | `type`*, `summary`*, `aliases`, `tags`, `sources`* (generated), `created`*, `updated`* | definition paragraph; `## Details`; `## Variants / approaches`; `## Evidence and debates`; `## Open questions`; `## Related` |
 | entity `entities/<name>.md` | as concept, plus `entity_kind`* (`model \| method \| software \| dataset \| benchmark \| instrument \| material \| organism \| site \| group \| person`) | what it is; `## Key facts`; `## How it fits`; `## Reported performance and issues`; `## Sources` |
-| topic `topics/<name>.md` | `type`*, `zotero_collections`* (`{KEY: "path"}`), `sources`* (generated), `created`*, `updated`* | `## Scope` (the mirrored collections, then coverage by state from `zot.py coverage --recursive`, as a line or a table); `## Current synthesis` (what the wiki believes, by open question); `## Map`; `## Timeline`; `## Open questions and tensions`; `## Reading queue` (each with a reason) |
-| analysis `analyses/<yyyy-mm-dd>-<slug>.md` | `type`*, `question`* (verbatim), `sources`* (generated), `created`* | the answer, tables, charts in `analyses/assets/`, the pages relied on |
+| topic `topics/<name>.md` | `type`*, `summary`*, `zotero_collections`* (`{KEY: "path"}`), `sources`* (generated), `created`*, `updated`* | `## Scope` (the mirrored collections, then coverage by state from `zot.py coverage --recursive`, as a line or a table); `## Current synthesis` (what the wiki believes, by open question); `## Map`; `## Timeline`; `## Open questions and tensions`; `## Reading queue` (each with a reason) |
+| analysis `analyses/<yyyy-mm-dd>-<slug>.md` | `type`*, `summary`*, `question`* (verbatim), `sources`* (generated), `created`* | the answer, tables, charts in `analyses/assets/`, the pages relied on |
 
 `sources:` is exactly the source pages the body cites; `tools/catalog.py --apply` derives it.
 
@@ -226,7 +231,9 @@ files changed). When in doubt, a query. Mixed requests: in order, each logged.
 
 ### 8.1 Session start
 
-`git status` (§2.10); read `pending.md`, `index.md` and the last five log headers; `zot.py status` if Zotero is needed.
+`git status` (§2.10); read `pending.md`, the output of `catalog.py --nav` (the index without its Sources list) and
+the last five log headers (`grep '^## \[' log.md | tail -5`); `zot.py status` if Zotero is needed. Never read
+`index.md`, `log.md` or `reviewed.md` whole: they grow with the wiki, and tools write them (§9, §10).
 
 ### 8.2 Ingest
 
@@ -266,7 +273,7 @@ or annotations, and what the page stresses and why; use §8.2b for more than abo
 6. **Integrate**: update the pages the source bears on, keeping scope; create pages only by §5.6; check disagreements
    for scope; `zot.py search` cited works and link those in Zotero with `↗`; run `relink.py --apply`.
 7. **Propagate and check**: `review.py since <start revision> --queue`; review and resolve; repeat until nothing new.
-   Then `catalog.py --apply`, update `index.md` and `log.md`, and lint.
+   Then `catalog.py --apply` (it writes `index.md` from the pages' `summary:` fields), append to `log.md`, and lint.
 8. **Report** what changed in the wiki's understanding, the disagreements found, and 1–3 next ingests. Clean up temp files.
 
 ### 8.2b Batch ingest
@@ -277,14 +284,19 @@ tensions, evidence on open questions, reading-queue candidates); after all reade
 each own a disjoint set of pages; the main agent alone writes the topic synthesis, index and log. An agent without
 subagents runs the same phases in order in one session. Details in tools/README.md.
 
+**Context per paper.** Each reader works in a fresh context on one paper (or at most about 40 rendered pages) and
+ends after writing its page and brief, because rendered pages stay in a context and are sent again with every later
+call. Never hand a reader that has finished a paper another one. The main agent starts a new session at each phase
+boundary (reading, integration, synthesis), with the files written so far as the checkpoint. Integrators read the
+briefs and the pages they own, not PDFs or the index (rule added 2026-11-01 to control ingest cost).
+
 ### 8.3 Query
 
 Find pages by search. Where qmd is set up (`.qmd` at the wiki root; tools/README.md), refresh it with `qmd update &&
 qmd embed`, then use `qmd query` with `intent:`, `lex:` and `vec:` lines you write yourself, and `qmd search` for exact
 names. Otherwise use `tools/search.py` (try several phrasings, synonyms and abbreviations; narrow with `--type` or
-`--collection`). Search results are leads: read the pages themselves before answering. Use `index.md` for orientation,
-its Topics, Concepts and Entities sections first; read its whole source list only when search cannot narrow the
-question. Pick pages, follow links one hop. Go back to Zotero only when the
+`--collection`). Search results are leads: read the pages themselves before answering. Use `catalog.py --nav` (the index
+without its Sources list) for orientation; find sources by search, never by reading the whole index. Pick pages, follow links one hop. Go back to Zotero only when the
 wiki lacks the detail, and then improve the wiki. Answer with citations down to source pages, keeping scope; say what
 the wiki does not cover and which Zotero items would. Offer to file substantive answers in `analyses/` (file them
 automatically if the user has said so). Log the query.
@@ -326,23 +338,31 @@ fails, and name that failure in the log entry. Rules accumulate faster than they
 
 ## 9. `index.md`
 
-Sections in order: Topics, Sources, Concepts, Entities, Analyses. One line per page, alphabetical (sources by first
-author, then year): `- [[page|Display]] — one-line summary · <metadata>`. The header counts and the metadata (sources:
-`· <collection> · <read_depth>`; others: `· <n> sources`) are generated by `catalog.py`; summaries are editorial.
-Propose splitting the index past about 300 pages.
+`catalog.py --apply` writes `index.md` below its preamble (the text before `## Topics`, which stays editorial).
+Sections in order: Topics, Sources, Concepts, Entities, Analyses. One line per page, sorted (sources by first author,
+then year; other pages by name): `- [[page|Display]] — summary · <metadata>`. Display is "First-author year, title" for
+a source and the page's `# ` heading otherwise. The summary is the page's `summary:` field, which is editorial; the
+header counts and the metadata (sources: `· <collection> · <read_depth>`; others: `· <n> sources`) are generated. Never
+edit index lines by hand: change the page's `summary:` or heading. Agents read the index only through
+`catalog.py --nav` (§8.1) and find pages by search (§8.3), so the index is not split by size.
 
 ## 10. `log.md`
 
 Append-only, newest at the bottom; never rewrite past entries (append a `fix`). Headers: `## [YYYY-MM-DD] <op> |
 <subject>`, op ∈ `setup | ingest | reingest | query | file | lint | schema | fix`. Body: 2–10 bullets with Zotero keys,
 pages created (`+`) and updated (`~`), disagreements and their resolution, open findings, claim-neutral edits not
-propagated, and `next:` lines.
+propagated, and `next:` lines. Append an entry without reading the file (a shell append or a tool), and find past
+entries by searching it.
 
 ## 11. Writing style
 
 - Write for the user: {{AUDIENCE}} Be precise; skip textbook padding.
 - Paraphrase. Numbers with units, systems and conditions. Math in LaTeX with the paper's notation, symbols defined.
 - Keep pages focused; split pages that cover two ideas and merge near-duplicates.
+- **Size limit**: a concept, entity or topic page over 40,000 bytes (about 10k tokens) is split into a parent page and
+  child pages by sub-question, because every integration and review reads the whole page. `split.py` moves a section
+  verbatim and leaves the heading, a one-line summary and a pointer in the parent. A split is claim-neutral
+  (`review.py since --neutral PARENT`). Lint warns (`size`) above the limit (rule added 2026-11-01).
 - Synthesis is the point of the wiki. Mark it `> [!synthesis]` when it goes beyond any one source, and cite its premises.
 
 ## 12. Co-evolution and open decisions
@@ -358,5 +378,8 @@ propagated, and `next:` lines.
 - **Search tools**: `qmd` (optional), keyword plus vector search with reranking, run locally, with its index in
   `.qmd` at the wiki root (git-ignored; a link to a folder outside cloud sync when this folder is synced); and
   `tools/search.py`, keyword ranking (BM25) with the standard library only, for machines or agents without qmd.
+- **Ingest cost** grows with the wiki unless each step loads a bounded amount: readers get one paper per fresh
+  context (§8.2b), the index is read through `catalog.py --nav`, append-only files are written by tools (§8.1, §10),
+  additive edits do not propagate (§4), and summary pages stay under 40,000 bytes (§11).
 - **People and groups as entities**: only if they recur in ≥ 3 sources.
 - **Group libraries**: `zot.py` reads the user library only; extend it before ingesting from a group.

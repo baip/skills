@@ -15,6 +15,9 @@ Errors (must be fixed):
   consistency   fields that contradict each other (read_depth vs read_mode, uri vs key, citekey vs filename, version_of)
 Warnings (judgment calls; `--strict` makes them fail too, which is the ingest completion gate, AGENTS.md §8.2):
   index drift   page not listed in index.md
+  summary       page without a one-line `summary:` field, the editorial text of its index line (catalog.py)
+  size          concept, entity or topic page over 40,000 bytes: split it into a parent and child pages by
+                sub-question (AGENTS.md §11), because every integration and review reads the whole page
   orphan        page with no inbound link (besides index/log)
   stale ↗ link  ↗ Zotero link to an item that now has a source page (run tools/relink.py)
   catalog       a generated field is out of date: a sources: list or index.md counts/metadata (run tools/catalog.py)
@@ -35,6 +38,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from wikimeta import WIKI, FP_VERSION, ledger_parse, load_pages, links, parse_fingerprint, pending_parse, source_states  # noqa: E402
 
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+SIZE_LIMIT = 40000  # bytes: about 10k tokens, read whole by every integration and review of the page
+SIZE_DIRS = ("concepts", "entities", "topics")
 KEY = re.compile(r"^[A-Z0-9]{8}$")
 AUTHOR = re.compile(r"^(et al\.|[^,]+, [^,]+)$")  # "Last, F." or "et al."
 ROOT_FILES = {"index", "log", "pending", "reviewed", "AGENTS", "CLAUDE", "llm-wiki"}
@@ -61,7 +66,7 @@ REQUIRED = {
 LISTS = {"authors", "corporate_authors", "collections", "sources", "tags", "aliases", "zotero_tags"}
 STRINGS = {"library", "title", "venue", "citekey", "zotero_uri", "zotero_key", "attachment_key", "doi", "url", "question",
            "zotero_fingerprint", "version_of", "entity_kind", "item_type", "read_depth", "read_mode", "supplement", "author_status"}
-TOOLS = ("catalog.py", "relink.py", "review.py", "search.py", "test_tools.py", "wikilint.py", "wikimeta.py", "zot.py")
+TOOLS = ("catalog.py", "relink.py", "review.py", "search.py", "split.py", "test_tools.py", "wikilint.py", "wikimeta.py", "zot.py")
 MODES_FOR_DEPTH = {"full": {"rendered", "text-index", "mixed"}, "partial": {"rendered", "text-index", "mixed"},
                    "abstract": {"none"}, "metadata-only": {"none"}}
 CONTRA = re.compile(r"^> \[!contradiction(\|([a-z-]+))?\]", re.M)
@@ -265,6 +270,11 @@ def main():
     for n, versions in pages.items():
         if n not in index_links:
             warns.append(("index drift", f"{n} not listed in index.md"))
+        if not (isinstance(versions[0]["fields"].get("summary"), str) and versions[0]["fields"]["summary"].strip()):
+            warns.append(("summary", f"{n} has no summary: field (its index line's text; catalog.py --adopt-index-summaries)"))
+        if versions[0]["dir"] in SIZE_DIRS and os.path.getsize(versions[0]["path"]) > SIZE_LIMIT:
+            warns.append(("size", f"{n} is {os.path.getsize(versions[0]['path'])} bytes, over {SIZE_LIMIT}: split it "
+                                  "into a parent and child pages (split.py)"))
         if not inbound[n] and versions[0]["dir"] != "topics":
             warns.append(("orphan", f"{n} has no inbound links (besides index/log)"))
     for key, (name, state) in source_states(pages).items():

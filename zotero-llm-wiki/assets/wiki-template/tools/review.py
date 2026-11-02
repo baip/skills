@@ -9,12 +9,18 @@ each other, their dependents. A queued page propagates further only if reviewing
 which you then report with `touched` or `since`. Measured 2026-10-18: a full transitive closure queues a
 median of 136 of 139 pages; these rules give a median of 15 for a source change and 5 for a synthesis page.
 
+`since` does not propagate an *additive* edit: one that only inserts whole lines and keeps every existing
+non-blank line, in order (blank lines are ignored). Dependents rest on the existing sentences, which are intact.
+An inserted [!contradiction] or [!stale] callout line still propagates, because it questions existing content.
+An insertion that narrows an existing claim must also edit that claim (AGENTS.md §6.8), and that edit propagates.
+
 Usage:
   review.py touched PAGE... [--reason TEXT]   queue the dependents of pages whose content you changed
   review.py since REV [--queue] [--neutral PAGE...]
                                               pages whose body changed since git REV, and their dependents;
-                                              --neutral names claim-neutral edits (locators, typos, wording
-                                              that keeps the meaning), which are listed but not propagated
+                                              additive edits (inserted lines only) are listed but not
+                                              propagated; --neutral names claim-neutral edits (locators,
+                                              typos, wording that keeps the meaning), also not propagated
   review.py restated PAGE --phrase TEXT... [--reason TEXT]
                                               after correcting a claim on PAGE, queue every other page whose
                                               body still contains one of the phrases (case-insensitive), so
@@ -31,6 +37,7 @@ part that changed, not merely that a keyword search found nothing.
 import argparse
 import datetime
 import os
+import re
 import subprocess
 import sys
 
@@ -104,6 +111,21 @@ def cmd_restated(a):
     report(entries)
 
 
+FLAG_CALLOUT = re.compile(r"\[!(?:contradiction|stale)\b", re.I)
+
+
+def additive(old_text, new_text):
+    """True when the new body only inserts lines into the old one: every non-blank old line survives unchanged
+    and in order, and no [!contradiction] or [!stale] callout was added."""
+    old = [ln.rstrip() for ln in wikimeta.parse_frontmatter(old_text)[1].splitlines() if ln.strip()]
+    new = [ln.rstrip() for ln in wikimeta.parse_frontmatter(new_text)[1].splitlines() if ln.strip()]
+    rest = iter(new)
+    if not all(any(ln == n for n in rest) for ln in old):  # greedy subsequence test
+        return False
+    count = lambda lines: sum(1 for ln in lines if FLAG_CALLOUT.search(ln))
+    return count(new) <= count(old)
+
+
 def git(*args):
     return subprocess.run(["git", "-C", wikimeta.WIKI, *args], capture_output=True, text=True)
 
@@ -113,7 +135,7 @@ def cmd_since(a):
     diff = git("diff", "--name-only", a.rev, "--", *wikimeta.DIRS)
     if diff.returncode:
         sys.exit(diff.stderr.strip())
-    changed, new = [], []
+    changed, new, added = [], [], []
     for rel in diff.stdout.split():
         name = os.path.basename(rel)[:-3] if rel.endswith(".md") else None
         if not name or name not in pages:
@@ -124,11 +146,13 @@ def cmd_since(a):
             continue
         now = open(pages[name][0]["path"]).read()
         if wikimeta.body_hash(old.stdout) != wikimeta.body_hash(now):
-            changed.append(name)
+            (added if additive(old.stdout, now) else changed).append(name)
     neutral = [n for n in changed if n in (getattr(a, "neutral", None) or [])]
     changed = [n for n in changed if n not in neutral]
     if neutral:
         print(f"claim-neutral, not propagated (list them in the log): {', '.join(neutral)}")
+    if added:
+        print(f"{len(added)} additive edit(s), only inserted lines, not propagated (count them in the log): {', '.join(added)}")
     entries = []
     for name in changed:
         cause = f"wiki:{name}@{wikimeta.body_hash(open(pages[name][0]['path']).read())}"

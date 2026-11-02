@@ -90,6 +90,18 @@ through it. Two lessons: move mechanics (formats, algorithms) to `tools/README.m
 once the first ingests and an audit have run, freeze the schema and change it only when an actual ingest, sync or audit
 fails, naming that failure in the log. The restatement rule is an example of a change that passed that test.
 
+## 7b. Ingest cost grows with the wiki (2026-11-01)
+
+At about 4,000 source pages, ingest cost per paper had risen roughly 4-fold: Codex logs showed mean input per call in
+wiki sessions rising from about 60k to about 240k tokens while tokens per 1 % of the weekly quota stayed flat, so the
+cause was the wiki, not the plan. Three things loaded unbounded text into every step: readers that read many papers in
+one context (rendered pages are re-sent on every later call), an `index.md` of 1.6 MB that session start told agents to
+read and hand edits required them to open, and summary pages of 50–90 KB that every integration and review read whole,
+with each edit queueing hundreds of dependents. The fixes keep each step's load bounded: one paper per reader context,
+a generated index read through `catalog.py --nav` with summaries in frontmatter, append-only files written by tools,
+additive edits exempt from propagation (dependents rest on existing sentences, which an insertion leaves intact), and a
+40,000-byte limit on summary pages with `split.py` moving sections verbatim.
+
 ## 8. Known limits
 
 - One user library only; group libraries need `zot.py` extended to `/api/groups/<id>`.

@@ -101,7 +101,7 @@ not just you. Then, with the user:
    annotations as of 2026-10-19. Delegated ingest, so there was no discussion. The page stresses X because the user
    works on Y.)*. The TL;DR and key contributions carry the takeaways; your report (§8.2 step 8) says what the paper
    changed in the wiki, so the user can redirect the emphasis later.
-4. Finish the way every changing interaction finishes: `catalog.py --apply`, update `log.md`, `wikilint.py --strict`,
+4. Finish the way every changing interaction finishes: `catalog.py --apply` (it writes the index from `summary:` fields), append to `log.md`, `wikilint.py --strict`,
    and one commit of the paths you changed.
 
 Suggest what comes next (more of the collection, possibly as a batch per §8.2b), and mention that a claim audit (§8.5)

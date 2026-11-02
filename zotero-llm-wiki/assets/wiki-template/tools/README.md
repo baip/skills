@@ -9,8 +9,9 @@ without changing the policy. Set up {{DATE}} ({{ENVIRONMENT}}).
 |---|---|
 | `zot.py` | Read-only Zotero client. It sends GET requests to Zotero's local API (Zotero 7+, Settings → Advanced → "Allow other applications on this computer to communicate with Zotero") and, if Better BibTeX is installed, one read-only RPC method for citation keys. Its only wiki write is `stamp`. The data directory comes from `$ZOTERO_DATA_DIR`, else the Zotero profile's setting, else `~/Zotero` |
 | `wikilint.py [--strict]` | Structural and metadata validation, including explicit `corporate_authors` declarations for organization names in `authors`. It exits 1 on errors; `--strict` (the completion gate) also fails on warnings and open `pending.md` items. Its `tools` warning compares `tools/*.py` with the installed skill (`$ZOTERO_LLM_WIKI_SKILL`, else `~/.claude/skills/zotero-llm-wiki`) |
-| `review.py` | Wiki-side review queue: `touched PAGE…` and `since REV --queue` queue the dependents of pages whose content changed; `done PAGE… --outcome corrected\|unchanged\|not-affected --basis TEXT [--cause ID]` resolves items into the ledger `reviewed.md`, and a resolved (page, cause) is never re-queued; `restated PAGE --phrase TEXT…` queues every other page whose body (outside code and link-list sections) still contains a phrase of a corrected claim, matching case- and whitespace-insensitively; `list` groups open items by page and counts resolutions |
-| `catalog.py [--apply]` | Generated bookkeeping: re-derives each page's `sources:` from its body, and regenerates the index header counts and line metadata (summaries untouched). Lint warns (`catalog`) while anything is out of date |
+| `review.py` | Wiki-side review queue: `touched PAGE…` and `since REV --queue` queue the dependents of pages whose content changed (`since` lists *additive* edits, which only insert lines, without propagating them, except inserted `[!contradiction]`/`[!stale]` callouts); `done PAGE… --outcome corrected\|unchanged\|not-affected --basis TEXT [--cause ID]` resolves items into the ledger `reviewed.md`, and a resolved (page, cause) is never re-queued; `restated PAGE --phrase TEXT…` queues every other page whose body (outside code and link-list sections) still contains a phrase of a corrected claim, matching case- and whitespace-insensitively; `list` groups open items by page and counts resolutions |
+| `catalog.py [--apply] \| --nav \| --adopt-index-summaries [--apply]` | Generated bookkeeping: re-derives each page's `sources:` from its body, and writes every `index.md` line below the preamble from the pages (display from the title or `# ` heading, summary from the `summary:` field, metadata generated). `--nav` prints the index without its Sources section, the session-start read. `--adopt-index-summaries` is the one-time migration that copies index-line summaries into `summary:` fields. Lint warns (`catalog`) while anything is out of date, and (`summary`) for a page without a summary |
+| `split.py PARENT --section HEADING --to CHILD --summary TEXT [--title T] [--apply]` | Splits a concept, entity or topic page over the 40,000-byte limit (lint `size`, AGENTS.md §11): moves one `##`–`####` section verbatim to a new child page and leaves the heading, the summary line and a pointer in the parent. It refuses if protected text would change. Dry run by default. Pass the parent to `review.py since --neutral`, then run `catalog.py --apply` |
 | `relink.py` | Converts `↗` Zotero links into wikilinks once the item has a source page. It skips `[!user]` callouts and code, and refuses to write if they would change. Dry run by default; `--apply` writes |
 | `search.py TERM… [--phrase TEXT]… [--type T] [--collection PREFIX] [--depth D] [-n 15]` | Ranked keyword search over the pages, for queries (AGENTS.md §8.3): BM25 over each page, with title, aliases, first heading and filename also ranked on their own, and tags, authors, citekey and headings counted extra. Words are lowercased, split at hyphens and plural-folded; no other stemming and no embeddings, so try synonyms. Prints score, path, type, title, read depth and the best-matching line. Read-only |
 | `wikimeta.py` | Shared module: a strict frontmatter parser, protected spans, page loading, derived source states, evidence links and dependents, the `pending.md` queue and the `reviewed.md` ledger |
@@ -111,12 +112,20 @@ Lint checks the line format, outcome, basis length and links.
   open question, and unresolved problems. The main agent runs lint until clean and writes one log entry for the batch.
 - Completion is judged by AGENTS.md §8.2, not by whether pages exist. Report what changed in the synthesis.
 
+- **One paper per reader context** (AGENTS.md §8.2b). Start a fresh reader subagent (or Codex session) for each paper,
+  or for at most about 40 rendered pages, and let it end after its page and brief. Do not resume a finished reader with a
+  new paper, and do not resume readers after a usage-limit stop: start new ones and let them check which pages exist.
+  Rendered page images stay in a context and are sent again with every later call, so a reader that reads ten papers
+  pays for the first nine again on each call of the tenth. Measured 2026-11-01 in Codex logs: mean input per call in
+  wiki sessions rose from about 60k tokens (2026-10-25 to 28) to about 240k (2026-10-30 to 11-01).
+- **Bounded reads.** Readers need the slug vocabulary, not the index; integrators read briefs and the pages they own.
+  Nobody reads `index.md`, `log.md` or `reviewed.md` whole: use `catalog.py --nav`, `grep`, and the tools.
 - **With subagents** (Claude Code allows 20 concurrent subagents by default, `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`):
   keep the reader and integrator instruction files in a temp directory outside the wiki (in Claude Code, the session
   scratchpad), and give each subagent its batch and the fixed vocabulary of planned slugs in its prompt. Subagents must
   be able to run the tools and view images; if they cannot, use the sequential mode. After a session or rate limit,
-  resume each subagent with a message (Claude Code: SendMessage to its id) and tell it to check which of its pages are
-  already complete.
+  start new subagents for the remaining papers and tell them to check which pages already exist (resuming an old one
+  would send its whole context again).
 - **Without subagents** (or when they cannot run the tools or view images), run the same phases in one session, in
   order: read and write every source page first, one paper at a time, saving each integration brief to a temp file
   outside the wiki; then integrate one page set at a time from the briefs; then write the topic synthesis, index and
