@@ -130,7 +130,10 @@ Lint checks the line format, outcome, basis length and links.
   the cache folder, so it never greps all briefs. Launch a wave only with quota left for it: 9 integrators started just
   before a 5-hour limit used 1.6M tokens and edited nothing.
 - **One phase per orchestrator session.** The orchestrator ends its session after reading and after integration:
-  commit the checkpoint, write the next phase's prompt to the batch state file, and stop with that prompt for the user.
+  commit the checkpoint, write the next phase's instructions to the batch state file (phase, start revision, items,
+  integrator groups, cache paths), and stop, telling the user to start a new session with "Continue ingestion". The
+  user never writes a handoff prompt. With no batch folder under `~/.cache/zotero-wiki/`, nothing is pending: ask
+  what to ingest.
   Subagents write their full reports to `<cache>/reports/` and return one line, which keeps the orchestrator's context
   small (measured 2026-11-02: one session through all phases reached 300k tokens per call, 2.7M tokens).
 - **Bounded reads.** Give each reader `tools/reader-brief.md` plus its assignment (key, filename, cache folder, batch notes)

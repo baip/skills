@@ -245,8 +245,10 @@ integrators holding 25–40 pages each used half of a run's tokens):
 - A limit on subagents (the user's, or the agent's) is a limit on how many run at once. Run the groups in waves within
   it.
 - The main agent works one phase per session (reading, integration, synthesis). At each boundary it commits the
-  checkpoint, writes the next phase's prompt to the batch state file and stops, asking the user to start a new session
-  with it. Subagents write their full reports to the cache folder and return one line.
+  checkpoint, writes the next phase's instructions to the batch state file and stops, telling the user to start a new
+  session with "Continue ingestion". That phrase is the whole prompt: find the batch state file in the cache folder and
+  run its next phase. The state file therefore names the phase, the start revision, the items and the cache paths
+  (rule added 2026-11-02). Subagents write their full reports to the cache folder and return one line.
 - Integrators read the briefs and the pages they own, not PDFs or the index.
 
 **Bounded reads** (rules added 2026-11-01 so that the cost of ingesting a paper does not grow with the wiki):
