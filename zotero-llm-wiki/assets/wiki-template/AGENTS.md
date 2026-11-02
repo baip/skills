@@ -93,99 +93,39 @@ else: reading, summarizing, cross-referencing, filing, tracking disagreements an
   link-list sections (`## Connections`, `## Related`, `## Sources`), and not as a navigation pointer (`→ [[x]]`,
   "See [[x]]", unless a locator follows). Put related-work and "read more" links in those forms; cite with a locator
   what a claim rests on.
-- **Review.** When a page's content changes, its dependents may be stale. They are queued in `pending.md`, each item
-  with a **cause** (what changed, at which revision):
-  - a changed **source** queues its direct dependents, and through source pages that quote it, theirs;
-  - a changed **concept, entity, topic or analysis** page queues only its direct dependents;
-  - a reviewed page propagates further only if the review changed it (`review.py touched` or `since`);
-  - a **claim-neutral** edit (a locator, a typo, wording that keeps the meaning) is not propagated: pass it to
-    `review.py since --neutral` and list it in the log;
-  - an **additive** edit (whole lines inserted, no existing line changed or deleted) is not propagated:
-    `review.py since` detects and lists it, and the log counts it. An inserted `[!contradiction]` or `[!stale]`
-    callout still propagates, and an insertion that narrows an existing claim must also edit that claim (§6.8),
-    which propagates (rule added 2026-11-01 to control ingest cost);
-  - **a corrected claim is also searched for by its wording.** Citation links miss pages that restate the same
-    conclusion from the same sources without citing the corrected page. After correcting a claim, run
-    `review.py restated PAGE --phrase "…"` with the key phrases of the *old* wording (2–3 distinctive phrases, numbers
-    or locators), and review what it queues like any other item.
-
-  Resolve each item with an outcome and its basis (`review.py done`): *corrected* (the page was changed), *unchanged*
-  (it uses the revised content and still holds), or *not-affected* (it does not use the part that changed). The basis
-  names what was checked, such as the sentences that cite the changed page; a keyword search may choose what to read
-  but is not a basis. Read those citing sentences first (`review.py list --context`) and open the whole dependent page
-  only when they use the changed content, so each item costs about the same however large the wiki grows. Resolutions go to `reviewed.md` and are never re-queued. `--strict` lint fails while items are open.
+- **Review.** When a page's content changes, its evidence dependents are queued in `pending.md`, each with a cause. A
+  changed source also reaches the dependents of source pages that quote it. Claim-neutral edits (`review.py since
+  --neutral`) and additive edits (lines only inserted, except new `[!contradiction]` or `[!stale]` callouts) do not
+  propagate. A corrected claim is also searched for by its old wording (`review.py restated`). Resolve each item with
+  `review.py done`, an outcome (*corrected*, *unchanged* or *not-affected*) and a basis naming what was checked,
+  reading the citing sentences first (`review.py list --context`). Resolutions go to `reviewed.md` and are never
+  re-queued. `--strict` lint fails while items are open. Full rules: tools/README.md, section "Schema details".
 - **Versions of one work** (preprint and published) keep separate pages. The earlier page sets `version_of:` and
   records only what differs; cite the later one. **Count works, not pages** (§6.8), and suggest merging in Zotero.
 
 ## 5. Page types and templates
 
-Frontmatter uses the YAML subset `tools/wikimeta.py` parses: `key: value` lines with plain or quoted scalars, flow
-lists `[a, "b, c"]` and flow maps `{K: "v"}`. Quote any list element that contains a comma. Required fields are marked *.
-Fields marked *generated* are written by tools, never by hand.
+Every page has frontmatter in the YAML subset `tools/wikimeta.py` parses, including a one-line `summary:` (its index
+entry, §9). Fields marked *generated* are written by tools, never by hand. The full templates, field lists and
+conventions are in tools/README.md, section "Schema details".
 
 ### 5.1 Source page — `sources/<citekey>.md`
 
-```yaml
----
-type: source*
-title: "…"*
-summary: "…"*               # one line, about 200 characters: the page's index entry (§9)
-authors: ["Smith, J.", "Doe, A."]*      # quoted; first 5, then "et al."
-corporate_authors: []        # optional exact organization names also listed in authors
-author_status: uncredited   # optional, only when the document itself credits no author
-year: 2021*                  # integer year, or undated when no date can be verified
-venue: "J. Example 12(3), 345–367"*
-item_type: review*            # review | article | preprint | book | chapter | thesis | software | dataset | conference | patent | presentation | report | webpage
-library: {{LIBRARY}}*        # user:<id> or group:<id>
-zotero_key: ABCD1234*
-citekey: smithExampleStudyTitle2021*
-zotero_uri: zotero://select/library/items/ABCD1234*   # groups: zotero://select/groups/<id>/items/<key>
-zotero_fingerprint: "v3 …"*   # generated by zot.py stamp
-zotero_checked: 2026-01-01*   # generated by zot.py stamp
-attachment_key: EFGH5678      # the PDF read
-doi: 10.xxxx/…
-collections: ["Path/To/Collection"]*
-zotero_tags: [_review, ML-FF]
-read_depth: full*
-read_mode: rendered*
-supplement: not-read*        # * for full and partial reads; not-read needs a reason (§2.6)
-version_of: <later citekey>
-ingested: 2026-01-01*
-updated: 2026-01-01*
-tags: [topic-tag, method-tag]
----
-```
-
-Body, in order: `# <Short title> (<First author> <year>)` with a **TL;DR**; `## Open in Zotero` (item link and a section
-map of `zotero://open-pdf/library/items/<attachment_key>?page=N` links, N = 1-based PDF page index); `## Key
-contributions` (3–7 bullets); `## Methods / setup`; `## Results and claims` (each with scope and locator); `## Limitations
-and caveats` (the authors', then the agent's, marked); `## Connections` (links here are not evidence); `## User notes`
-(the user's emphasis, `> [!user]` blocks, and a `> [!note] Reading history` with dates and exactly what was read).
-
-A source page over 40,000 bytes (§11) is split into **part notes** `sources/<citekey>--<part>.md` (`type: source-part`,
-`part_of: <citekey>`, `summary`, `created`, `updated`), each holding a chapter or group of sections verbatim. The
-source page keeps the frontmatter, TL;DR, Open in Zotero map, key contributions, limitations, Reading history and one
-summary line with a pointer per part. Parts are the same work's notes, never a second identity; citing a part counts
-as citing the source.
-
-Keep `authors` in credited order. Optional `corporate_authors` identifies organization names exactly as they occur in
-`authors`. Its entries must be nonempty strings, without duplicates, and each must occur in `authors`. Only declared
-organizations are exempt from the personal-name format. Do not add artificial personal-name punctuation to institutions.
-
-For a metadata-only record with no author verifiable from Zotero, use `authors: []` and explain the missing attribution in Reading history. The `authors` field remains required. For a full or partial read of a document that credits no author, use `authors: []` with `author_status: uncredited` and a Reading history line "No credited author: <evidence from the rendered document>". This explicit exception must not replace a known author or turn unknown attribution in an unread document into a verified absence.
-
-Use `year: undated` only when no publication date can be verified. Explain the missing date in Reading history and display “undated” in the source heading. Never substitute a guessed year or numeric placeholder.
+- Frontmatter: the bibliographic fields, `library`, `zotero_key`, `citekey`, `zotero_uri`, the generated
+  `zotero_fingerprint` and `zotero_checked`, `collections`, `read_depth`, `read_mode`, `supplement` (§2.6),
+  `ingested` and `updated`.
+- Body, in order: a heading with a **TL;DR**, `## Open in Zotero` (with a section map of PDF page links),
+  `## Key contributions`, `## Methods / setup`, `## Results and claims` (each with scope and locator),
+  `## Limitations and caveats`, `## Connections` (not evidence) and `## User notes` ending with a Reading history.
+- Keep `authors` in credited order. Never guess an author or a year: use `authors: []` or `year: undated` with the
+  reason in the Reading history.
+- A source page over 40,000 bytes is split into part notes (`type: source-part`, `part_of:`), the same work's notes,
+  never a second identity. Citing a part counts as citing the source.
 
 ### 5.2–5.5 Other pages
 
-| Type | Frontmatter | Body |
-|---|---|---|
-| concept `concepts/<name>.md` | `type`*, `summary`*, `aliases`, `tags`, `sources`* (generated), `created`*, `updated`* | definition paragraph; `## Details`; `## Variants / approaches`; `## Evidence and debates`; `## Open questions`; `## Related` |
-| entity `entities/<name>.md` | as concept, plus `entity_kind`* (`model \| method \| software \| dataset \| benchmark \| instrument \| material \| organism \| site \| group \| person`) | what it is; `## Key facts`; `## How it fits`; `## Reported performance and issues`; `## Sources` |
-| topic `topics/<name>.md` | `type`*, `summary`*, `zotero_collections`* (`{KEY: "path"}`), `sources`* (generated), `created`*, `updated`* | `## Scope` (the mirrored collections, then coverage by state from `zot.py coverage --recursive`, as a line or a table); `## Current synthesis` (what the wiki believes, by open question); `## Map`; `## Timeline`; `## Open questions and tensions`; `## Reading queue` (each with a reason) |
-| analysis `analyses/<yyyy-mm-dd>-<slug>.md` | `type`*, `summary`*, `question`* (verbatim), `sources`* (generated), `created`* | the answer, tables, charts in `analyses/assets/`, the pages relied on |
-
-`sources:` is exactly the source pages the body cites; `tools/catalog.py --apply` derives it.
+Concept, entity, topic and analysis pages follow their templates in tools/README.md, section "Schema details". Their `sources:` is exactly the
+source pages the body cites, derived by `catalog.py --apply`.
 
 ### 5.6 When a page earns its own file
 
@@ -312,10 +252,8 @@ briefs and the pages they own, not PDFs or the index (rule added 2026-11-01 to c
 
 ### 8.3 Query
 
-Find pages by search. Where qmd is set up (`.qmd` at the wiki root; tools/README.md), refresh it with `qmd update &&
-qmd embed`, then use `qmd query` with `intent:`, `lex:` and `vec:` lines you write yourself, and `qmd search` for exact
-names. Otherwise use `tools/search.py` (try several phrasings, synonyms and abbreviations; narrow with `--type` or
-`--collection`). Search results are leads: read the pages themselves before answering. Use `catalog.py --nav` (the index
+Find pages by search: `qmd` where it is set up, otherwise `tools/search.py`, with several phrasings (tools/README.md, section "Schema details").
+Search results are leads: read the pages themselves before answering. Use `catalog.py --nav` (the index
 preamble and Topics) for orientation; find sources by search, never by reading the whole index. Pick pages, follow links one hop. Go back to Zotero only when the
 wiki lacks the detail, and then improve the wiki. Answer with citations down to source pages, keeping scope; say what
 the wiki does not cover and which Zotero items would. Offer to file substantive answers in `analyses/` (file them
@@ -337,17 +275,9 @@ automatically if the user has said so). Log the query.
 Lint checks structure; only an audit checks the knowledge. Run one after a substantial ingest or synthesis revision,
 before the user relies on an important conclusion, or when asked.
 
-1. **Sample** about 10 claims from the topic synthesis and concept pages, favoring quantitative claims, verdicts,
-   headings and single-source claims. Record how the sample was drawn.
-2. **Trace** each claim to the source page and then to the rendered PDF page it cites.
-3. **Record every finding**, typed: *transcription* (a number, unit or equation differs) · *scope* (a system, condition,
-   comparator or metric dropped) · *attribution* (wrong source, or secondary cited as primary) · *inference* (a
-   conclusion the scoped evidence does not support) · *locator*. The **verdict** is the most serious finding:
-   *supported* · *scope-narrowed* · *misattributed* · *unsupported* · *not checkable* (no PDF, no SI, ambiguous locator;
-   inability to verify, not evidence against). Check conclusions as well as numbers. Keep confirmed and unchecked items
-   apart in the report.
-4. **Fix and propagate** (§4), including `review.py restated` for each corrected claim, and save the audit as
-   `analyses/<date>-claim-audit.md`.
+Sample about 10 claims and record how they were drawn, trace each to the rendered PDF page it cites, record typed
+findings and a verdict per claim, keeping confirmed and unchecked items apart, then fix and propagate (§4, including
+`review.py restated`) and save the audit as `analyses/<date>-claim-audit.md`. Finding types and verdicts: tools/README.md, section "Schema details".
 
 ### 8.6 Schema change
 
@@ -358,13 +288,9 @@ fails, and name that failure in the log entry. Rules accumulate faster than they
 
 ## 9. `index.md`
 
-`catalog.py --apply` writes `index.md` below its preamble (the text before `## Topics`, which stays editorial).
-Sections in order: Topics, Sources, Concepts, Entities, Analyses. One line per page, sorted (sources by first author,
-then year; other pages by name): `- [[page|Display]] — summary · <metadata>`. Display is "First-author year, title" for
-a source and the page's `# ` heading otherwise. The summary is the page's `summary:` field, which is editorial; the
-header counts and the metadata (sources: `· <collection> · <read_depth>`; others: `· <n> sources`) are generated. Never
-edit index lines by hand: change the page's `summary:` or heading. Agents read the index only through
-`catalog.py --nav` (§8.1) and find pages by search (§8.3), so the index is not split by size.
+`catalog.py --apply` generates every line of `index.md` below its editorial preamble, from each page's `summary:`
+and heading. Never edit index lines by hand. Agents read the index only through `catalog.py --nav` (§8.1) and find
+pages by search (§8.3), so it is not split by size. Line format: tools/README.md, section "Schema details".
 
 ## 10. `log.md`
 
@@ -379,22 +305,16 @@ entries by searching it.
 - Write for the user: {{AUDIENCE}} Be precise; skip textbook padding.
 - Paraphrase. Numbers with units, systems and conditions. Math in LaTeX with the paper's notation, symbols defined.
 - Keep pages focused; split pages that cover two ideas and merge near-duplicates.
-- **Size limit**: a page over 40,000 bytes (about 10k tokens) is split, because every integration, review or audit
-  reads the whole page. A concept, entity or topic page becomes a parent page and child pages by sub-question, a
-  source page becomes part notes (§5.1). `split.py` moves a section verbatim and leaves the heading, a one-line
-  summary and a pointer. A split is claim-neutral (`review.py since --neutral PARENT`). An analysis kept as a
-  historical record is marked `frozen: true`, is exempt and is no longer edited. Lint warns (`size`) above the limit
-  (rule added 2026-11-01, extended to source pages and analyses the same day).
+- **Size limit**: every page stays under 40,000 bytes (about 10k tokens), because integrations, reviews and audits read
+  whole pages. Split oversized pages with `split.py`, which moves sections verbatim (claim-neutral). Historical
+  analyses marked `frozen: true` are exempt. Details: tools/README.md, section "Schema details".
 - Synthesis is the point of the wiki. Mark it `> [!synthesis]` when it goes beyond any one source, and cite its premises.
 
 ## 12. Co-evolution and open decisions
 
 - **Revision history**: {{GIT_LOCATION}}; push on request (tools/README.md).
-- **Tools are maintained in the installed skill** (`{{SKILL_DIR}}`), so one copy stays the source and fixes reach every
-  wiki made from it. To change a tool: edit it in `{{SKILL_DIR}}/assets/wiki-template/tools/`, run
-  `python3 -I {{SKILL_DIR}}/assets/wiki-template/tools/test_tools.py`, commit there if the skill is a git clone, then run
-  `python3 {{SKILL_DIR}}/scripts/init_wiki.py --upgrade-tools .` here (it tests, logs and commits). `wikilint.py` warns
-  (`tools`) while `tools/` differs from the skill or the skill is missing.
+- **Tools are maintained in the installed skill** (`{{SKILL_DIR}}`): change them there first, test, then upgrade
+  this wiki (tools/README.md, section "Schema details").
 - **YAML parsing**: a strict, tested parser for the frontmatter subset, so the tools stay dependency-free under
   `python3 -I`. Revisit if the frontmatter outgrows the subset.
 - **Search tools**: `qmd` (optional), keyword plus vector search with reranking, run locally, with its index in
