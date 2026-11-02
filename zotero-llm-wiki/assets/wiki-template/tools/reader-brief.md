@@ -24,7 +24,7 @@ notes.
    text relies on it (methods, parameters, data or results deferred there). Otherwise record `supplement: not-read`
    and a Reading history line "Supplement not read: <reason>". Use `zot.py fulltext` only to search or quote exactly.
    Books over 150 PDF pages: front matter plus the chapters named in your assignment, each in full.
-3. Write `sources/<filename>.md` per AGENTS.md §5.1: the frontmatter fields (including a one-line `summary:` of about
+3. Write `sources/<filename>.md` per the source page template (tools/README.md, Schema details, Page templates): the frontmatter fields (including a one-line `summary:` of about
    200 characters), then `# <Short title> (<First author> <year>)` with a TL;DR, `## Open in Zotero` (item link and a
    section map of `zotero://open-pdf/library/items/<attachment_key>?page=N`, N the 1-based PDF page),
    `## Key contributions` (3–7 bullets), `## Methods / setup`, `## Results and claims` (each with scope and locator),
@@ -33,7 +33,7 @@ notes.
    `> [!note] Reading history` (date, exactly which PDF and supplement pages were read, what was not read and why).
    - Write the page **from the paper alone**: no comparison with wiki pages in the TL;DR or key contributions.
    - Every quantitative claim keeps system, method, metric and conditions, with a locator (§, Fig., Table, eq., p.).
-   - If the page would exceed 40,000 bytes, keep the source page to the parts listed in AGENTS.md §5.1 and put chapter
+   - If the page would exceed 40,000 bytes, keep the source page to the parts AGENTS.md §5.1 lists for it and put chapter
      or section detail in part notes with `tools/split.py` (or write them directly in that form).
 4. `zot.py stamp <filename>`. **The stamped page is the checkpoint**: file it before doing anything else, so an
    interruption never forces a re-read.

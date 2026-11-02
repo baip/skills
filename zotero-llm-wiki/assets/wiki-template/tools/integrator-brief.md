@@ -15,7 +15,7 @@ your assignment with the briefs to use and the sources you must integrate. Do no
    reviews (AGENTS.md §4). Change an existing claim only when the new evidence narrows or contradicts it, using a
    `> [!contradiction|STATUS]` callout after checking whether system, conditions, definitions and metric are the
    same (`scope` if they differ). Preserve `> [!user]` blocks verbatim. Set `updated:` to today.
-4. New pages only where AGENTS.md §5.6 is met, from the §5.2–5.5 templates with a one-line `summary:` and
+4. New pages only where AGENTS.md §5.6 is met, from the page templates in tools/README.md (Schema details) with a one-line `summary:` and
    `sources: []` (catalog fills it). Search first (`tools/search.py`) so you do not duplicate an existing page.
 5. Keep every page you own under 40,000 bytes. If one would pass the limit, split it with `tools/split.py` (a section
    moved verbatim to a child page) and report the split.
