@@ -234,11 +234,19 @@ tensions, evidence on open questions, reading-queue candidates); after all reade
 each own a disjoint set of pages; the main agent alone writes the topic synthesis, index and log. An agent without
 subagents runs the same phases in order in one session. Details in tools/README.md.
 
-**Context per paper.** Each reader works in a fresh context on one paper (or at most about 40 rendered pages) and
-ends after writing its page and brief, because rendered pages stay in a context and are sent again with every later
-call. Never hand a reader that has finished a paper another one. The main agent starts a new session at each phase
-boundary (reading, integration, synthesis), with the files written so far as the checkpoint. Integrators read the
-briefs and the pages they own, not PDFs or the index (rule added 2026-11-01 to control ingest cost).
+**Context per agent.** Everything an agent reads stays in its context and is sent again with every later call, so
+each reader, integrator and phase gets a fresh context with a bounded load (rules added 2026-11-01, and 2026-11-02 after
+integrators holding 25–40 pages each used half of a run's tokens):
+- A reader takes one paper, or several short papers totalling at most about 40 rendered pages, and ends after writing
+  their pages and briefs. Never hand a reader that has finished its assignment another paper.
+- An integrator owns at most about 10 pages, fewer when they are long. Split a larger page set across more integrators;
+  never merge groups to have fewer.
+- A limit on subagents (the user's, or the agent's) is a limit on how many run at once. Run the groups in waves within
+  it.
+- The main agent works one phase per session (reading, integration, synthesis). At each boundary it commits the
+  checkpoint, writes the next phase's prompt to the batch state file and stops, asking the user to start a new session
+  with it. Subagents write their full reports to the cache folder and return one line.
+- Integrators read the briefs and the pages they own, not PDFs or the index.
 
 **Bounded reads** (rules added 2026-11-01 so that the cost of ingesting a paper does not grow with the wiki):
 - Readers read `tools/reader-brief.md` and their paper, and skip the session protocol (§8.1). Integrators read
@@ -246,6 +254,9 @@ briefs and the pages they own, not PDFs or the index (rule added 2026-11-01 to c
 - A reader's link candidates come from a search for its paper (about the top 15), never a full list of pages.
 - Read an existing source page head first (TL;DR, key contributions, section map), then only the sections or part
   notes needed, unless auditing it.
+- Command output is bounded: list files (`grep -l`), cap matches (`grep -m`, `| head`), or use `tools/search.py`;
+  never print every matching line across the wiki or the briefs. The main agent extracts the brief claims aimed at
+  each integrator's pages into one file per integrator.
 - Batch queues, inventories, briefs and the orchestrator's state live in a cache folder outside the wiki, never in
   wiki pages. The orchestrator records its batch state in a small file there and starts fresh per batch or phase.
 - Review the diff of hand-written pages. Check generated files (`index.md`, `sources:` lists) with `git diff --stat`.
@@ -323,6 +334,8 @@ entries by searching it.
 - **Ingest cost** grows with the wiki unless each step loads a bounded amount: readers get one paper per fresh
   context and a short brief (§8.2b), orientation is the Topics list from `catalog.py --nav` (§8.1), pages are found by
   search, append-only files are written by tools (§10), additive edits do not propagate and reviews read citing
-  sentences first (§4), lint details only changed pages, and every page stays under 40,000 bytes (§11).
+  sentences first (§4), lint details only changed pages, and every page stays under 40,000 bytes (§11). Integrators own
+  at most about 10 pages, groups run in waves within any limit on subagents, and the main agent works one phase per
+  session (§8.2b).
 - **People and groups as entities**: only if they recur in ≥ 3 sources.
 - **Group libraries**: `zot.py` reads the user library only; extend it before ingesting from a group.

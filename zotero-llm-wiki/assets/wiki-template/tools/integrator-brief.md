@@ -1,8 +1,11 @@
 # Integrator brief
 
 You are an **integrator** (AGENTS.md §8.2 step 6, §8.2b) in a fresh context. You own a fixed set of pages, listed in
-your assignment with the briefs to use and the sources you must integrate. Do not read `index.md`, `log.md`,
-`reviewed.md`, PDFs or the whole of AGENTS.md. Run commands from the wiki root with `python3 -I tools/<tool>`.
+your assignment (at most about 10), with the file of brief claims aimed at them and the sources you must integrate.
+Do not read `index.md`, `log.md`, `reviewed.md`, PDFs or the whole of AGENTS.md. Run commands from the wiki root with
+`python3 -I tools/<tool>`. Everything you read stays in your context and is re-sent on every call, so read only what
+you need: keep command output bounded (`grep -l`, `grep -m`, `| head`, `tools/search.py`), never print every matching
+line across the wiki or all briefs, and do not reread a page you already have.
 
 1. **Edit only the pages you own.** Claims for other pages go in your final report. Do not edit source pages except to
    fix an error (report it). Never edit `index.md`, `log.md`, `pending.md` or `reviewed.md`, and do not run
@@ -24,7 +27,8 @@ your assignment with the briefs to use and the sources you must integrate. Do no
 
 ## Final report
 
-Pages updated (~) and created (+), each with its `summary:` line. Sources integrated (key → pages citing it in text)
-and any you could not integrate, with the reason. Synthesis bullets for the topic page, grouped by open question,
-each scoped and cited. Disagreements and their status. Claims for pages you do not own. Splits made and source-page
-fixes.
+Write it to the reports file named in your assignment, then end with one line: pages updated and created, sources
+integrated, and problems. The report lists pages updated (~) and created (+), each with its `summary:` line. Sources
+integrated (key → pages citing it in text) and any you could not integrate, with the reason. Synthesis bullets for the
+topic page, grouped by open question, each scoped and cited. Disagreements and their status. Claims for pages you do
+not own. Splits made and source-page fixes.
