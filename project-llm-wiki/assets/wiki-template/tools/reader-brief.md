@@ -26,6 +26,9 @@ any, the cache folder for your brief, and any batch-specific notes.
    (`docs.py render FILE --pages a-b`, then view each image). For Word or PowerPoint without a PDF, `docs.py render`
    converts it; if no converter is available, read `docs.py text FILE` and view every image it lists (`read_mode:
    source`). LaTeX: `docs.py text main.tex` and view each figure it lists. Use extracted text to search or quote.
+   **Long documents** (theses, books, anything over 100 pages): read the front matter and the chapters or sections
+   your assignment names, each in full; record the whole chapter→page map and each unread chapter with the reason
+   "long document, read in part" (`read_depth: partial`, AGENTS.md §8.2 step 3).
 3. Write `sources/<page>.md` per the source page template (tools/README.md, Schema details, Page templates): the
    frontmatter (with a one-line `summary:` of about 200 characters, `doc_kind`, `my_role`, `project` if given,
    `doc_id` (quoted, as `docs.py info` prints it), `files`, `read_file`, `read_depth`, `read_mode`), then `# <Short title> (<doc kind>, <date>)` with a
