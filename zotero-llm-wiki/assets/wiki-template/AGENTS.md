@@ -224,7 +224,7 @@ or annotations, and what the page stresses and why; use §8.2b for more than abo
    for scope; `zot.py search` cited works and link those in Zotero with `↗`; run `relink.py --apply`.
 7. **Propagate and check**: `review.py since <start revision> --queue`; review and resolve; repeat until nothing new.
    Then `catalog.py --apply` (it writes `index.md` from the pages' `summary:` fields), append to `log.md`, and lint.
-8. **Report** what changed in the wiki's understanding, the disagreements found, and 1–3 next ingests. Clean up temp files.
+8. **Report** what changed in the wiki's understanding, the disagreements found, and 1–3 next ingests. Clean up temp files and, after a batch, its cache folder (§8.2b).
 
 ### 8.2b Batch ingest
 
@@ -260,6 +260,8 @@ integrators holding 25–40 pages each used half of a run's tokens):
   each integrator's pages into one file per integrator.
 - Batch queues, inventories, briefs and the orchestrator's state live in a cache folder outside the wiki, never in
   wiki pages. The orchestrator records its batch state in a small file there and starts fresh per batch or phase.
+  The session that completes the batch deletes that folder after its commit, once anything worth keeping is in the
+  wiki or the log; an incomplete batch keeps it until it resumes or the user drops it (rule added 2026-11-02).
 - Review the diff of hand-written pages. Check generated files (`index.md`, `sources:` lists) with `git diff --stat`.
 
 ### 8.3 Query
