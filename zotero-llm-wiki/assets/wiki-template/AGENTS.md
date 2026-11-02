@@ -60,12 +60,13 @@ else: reading, summarizing, cross-referencing, filing, tracking disagreements an
 ├── log.md        # append-only chronological record (§10)
 ├── pending.md    # open review items (§4)
 ├── reviewed.md   # append-only ledger of resolved review items (§4)
-├── sources/      # one page per Zotero item: <citekey>.md
+├── sources/      # one page per Zotero item: <citekey>.md, plus part notes <citekey>--<part>.md of long ones
 ├── concepts/     # general ideas, methods, phenomena
 ├── entities/     # named things: models, codes, datasets, benchmarks
 ├── topics/       # synthesis hubs, usually mirroring a Zotero collection
 ├── analyses/     # filed answers, comparisons, audits; assets/ holds charts the agent made
-└── tools/        # zot.py, review.py, catalog.py, wikilint.py, relink.py, search.py, split.py, wikimeta.py, test_tools.py, README.md
+└── tools/        # zot.py, review.py, catalog.py, wikilint.py, relink.py, search.py, split.py, wikimeta.py, test_tools.py, README.md,
+                  # reader-brief.md, integrator-brief.md
 ```
 
 - No other top-level folders without a schema change. Flat folders; page names unique across folders.
@@ -111,7 +112,8 @@ else: reading, summarizing, cross-referencing, filing, tracking disagreements an
   Resolve each item with an outcome and its basis (`review.py done`): *corrected* (the page was changed), *unchanged*
   (it uses the revised content and still holds), or *not-affected* (it does not use the part that changed). The basis
   names what was checked, such as the sentences that cite the changed page; a keyword search may choose what to read
-  but is not a basis. Resolutions go to `reviewed.md` and are never re-queued. `--strict` lint fails while items are open.
+  but is not a basis. Read those citing sentences first (`review.py list --context`) and open the whole dependent page
+  only when they use the changed content, so each item costs about the same however large the wiki grows. Resolutions go to `reviewed.md` and are never re-queued. `--strict` lint fails while items are open.
 - **Versions of one work** (preprint and published) keep separate pages. The earlier page sets `version_of:` and
   records only what differs; cite the later one. **Count works, not pages** (§6.8), and suggest merging in Zotero.
 
@@ -159,6 +161,12 @@ map of `zotero://open-pdf/library/items/<attachment_key>?page=N` links, N = 1-ba
 contributions` (3–7 bullets); `## Methods / setup`; `## Results and claims` (each with scope and locator); `## Limitations
 and caveats` (the authors', then the agent's, marked); `## Connections` (links here are not evidence); `## User notes`
 (the user's emphasis, `> [!user]` blocks, and a `> [!note] Reading history` with dates and exactly what was read).
+
+A source page over 40,000 bytes (§11) is split into **part notes** `sources/<citekey>--<part>.md` (`type: source-part`,
+`part_of: <citekey>`, `summary`, `created`, `updated`), each holding a chapter or group of sections verbatim. The
+source page keeps the frontmatter, TL;DR, Open in Zotero map, key contributions, limitations, Reading history and one
+summary line with a pointer per part. Parts are the same work's notes, never a second identity; citing a part counts
+as citing the source.
 
 Keep `authors` in credited order. Optional `corporate_authors` identifies organization names exactly as they occur in
 `authors`. Its entries must be nonempty strings, without duplicates, and each must occur in `authors`. Only declared
@@ -231,9 +239,11 @@ files changed). When in doubt, a query. Mixed requests: in order, each logged.
 
 ### 8.1 Session start
 
-`git status` (§2.10); read `pending.md`, the output of `catalog.py --nav` (the index without its Sources list) and
+`git status` (§2.10); read `pending.md`, the output of `catalog.py --nav` (the index preamble and Topics) and
 the last five log headers (`grep '^## \[' log.md | tail -5`); `zot.py status` if Zotero is needed. Never read
-`index.md`, `log.md` or `reviewed.md` whole: they grow with the wiki, and tools write them (§9, §10).
+`index.md`, `log.md` or `reviewed.md` whole: they grow with the wiki, and tools write them (§9, §10). Find every other
+page by search (§8.3). During work, run `wikilint.py --since <start revision>`, which lists every error but details
+warnings only for the pages you changed.
 
 ### 8.2 Ingest
 
@@ -290,13 +300,23 @@ call. Never hand a reader that has finished a paper another one. The main agent 
 boundary (reading, integration, synthesis), with the files written so far as the checkpoint. Integrators read the
 briefs and the pages they own, not PDFs or the index (rule added 2026-11-01 to control ingest cost).
 
+**Bounded reads** (rules added 2026-11-01 so that the cost of ingesting a paper does not grow with the wiki):
+- Readers read `tools/reader-brief.md` and their paper, and skip the session protocol (§8.1). Integrators read
+  `tools/integrator-brief.md`.
+- A reader's link candidates come from a search for its paper (about the top 15), never a full list of pages.
+- Read an existing source page head first (TL;DR, key contributions, section map), then only the sections or part
+  notes needed, unless auditing it.
+- Batch queues, inventories, briefs and the orchestrator's state live in a cache folder outside the wiki, never in
+  wiki pages. The orchestrator records its batch state in a small file there and starts fresh per batch or phase.
+- Review the diff of hand-written pages. Check generated files (`index.md`, `sources:` lists) with `git diff --stat`.
+
 ### 8.3 Query
 
 Find pages by search. Where qmd is set up (`.qmd` at the wiki root; tools/README.md), refresh it with `qmd update &&
 qmd embed`, then use `qmd query` with `intent:`, `lex:` and `vec:` lines you write yourself, and `qmd search` for exact
 names. Otherwise use `tools/search.py` (try several phrasings, synonyms and abbreviations; narrow with `--type` or
 `--collection`). Search results are leads: read the pages themselves before answering. Use `catalog.py --nav` (the index
-without its Sources list) for orientation; find sources by search, never by reading the whole index. Pick pages, follow links one hop. Go back to Zotero only when the
+preamble and Topics) for orientation; find sources by search, never by reading the whole index. Pick pages, follow links one hop. Go back to Zotero only when the
 wiki lacks the detail, and then improve the wiki. Answer with citations down to source pages, keeping scope; say what
 the wiki does not cover and which Zotero items would. Offer to file substantive answers in `analyses/` (file them
 automatically if the user has said so). Log the query.
@@ -359,10 +379,12 @@ entries by searching it.
 - Write for the user: {{AUDIENCE}} Be precise; skip textbook padding.
 - Paraphrase. Numbers with units, systems and conditions. Math in LaTeX with the paper's notation, symbols defined.
 - Keep pages focused; split pages that cover two ideas and merge near-duplicates.
-- **Size limit**: a concept, entity or topic page over 40,000 bytes (about 10k tokens) is split into a parent page and
-  child pages by sub-question, because every integration and review reads the whole page. `split.py` moves a section
-  verbatim and leaves the heading, a one-line summary and a pointer in the parent. A split is claim-neutral
-  (`review.py since --neutral PARENT`). Lint warns (`size`) above the limit (rule added 2026-11-01).
+- **Size limit**: a page over 40,000 bytes (about 10k tokens) is split, because every integration, review or audit
+  reads the whole page. A concept, entity or topic page becomes a parent page and child pages by sub-question, a
+  source page becomes part notes (§5.1). `split.py` moves a section verbatim and leaves the heading, a one-line
+  summary and a pointer. A split is claim-neutral (`review.py since --neutral PARENT`). An analysis kept as a
+  historical record is marked `frozen: true`, is exempt and is no longer edited. Lint warns (`size`) above the limit
+  (rule added 2026-11-01, extended to source pages and analyses the same day).
 - Synthesis is the point of the wiki. Mark it `> [!synthesis]` when it goes beyond any one source, and cite its premises.
 
 ## 12. Co-evolution and open decisions
@@ -379,7 +401,8 @@ entries by searching it.
   `.qmd` at the wiki root (git-ignored; a link to a folder outside cloud sync when this folder is synced); and
   `tools/search.py`, keyword ranking (BM25) with the standard library only, for machines or agents without qmd.
 - **Ingest cost** grows with the wiki unless each step loads a bounded amount: readers get one paper per fresh
-  context (§8.2b), the index is read through `catalog.py --nav`, append-only files are written by tools (§8.1, §10),
-  additive edits do not propagate (§4), and summary pages stay under 40,000 bytes (§11).
+  context and a short brief (§8.2b), orientation is the Topics list from `catalog.py --nav` (§8.1), pages are found by
+  search, append-only files are written by tools (§10), additive edits do not propagate and reviews read citing
+  sentences first (§4), lint details only changed pages, and every page stays under 40,000 bytes (§11).
 - **People and groups as entities**: only if they recur in ≥ 3 sources.
 - **Group libraries**: `zot.py` reads the user library only; extend it before ingesting from a group.

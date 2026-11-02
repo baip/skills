@@ -675,7 +675,8 @@ with tempfile.TemporaryDirectory() as tmp:
               "- [[s1|Doe 2021, Source s1]] — Summary of s1. · C · full" in _idx_text and
               "- [[c1]] — c1 summary · 2 sources" in _idx_text)
         _nav = catalog.nav(wikimeta.load_pages(), _idx_text)
-        check("catalog: --nav leaves out the Sources section", "## Sources" not in _nav and "## Concepts" in _nav and "[[c1]]" in _nav)
+        check("catalog: --nav prints the Topics section only", "## Topics" in _nav and "[[t1]]" in _nav and
+              "## Sources" not in _nav and "## Concepts" not in _nav)
         _fb = catalog.index_summaries("## Concepts\n- [[c9|Nine]] — kept editorial text · 3 sources\n")
         check("catalog: an index line's summary is read without its generated metadata", _fb == {"c9": "kept editorial text"})
         check("catalog: summaries with quotes and backslashes survive YAML quoting",
@@ -692,6 +693,48 @@ with tempfile.TemporaryDirectory() as tmp:
         check("version_of: an earlier version counts as integrated once the later one is cited",
               vs["VERKEYL1"][1] == "integrated" and vs["VERKEYE1"][1] == "integrated")
         check("version_of: it does not excuse a page whose target is uncited", vs["VERKEYN1"][1] == "read")
+
+        # ---- part notes: a long source page split into parts stays one identity ----
+        import split  # noqa: E402
+        s3p = os.path.join(tmp, "sources/s3.md")
+        _s3 = open(s3p).read()
+        _s3_new = _s3.replace("## Results and claims\nOwn results.\n", "## Results and claims\nOwn results.\n\n### Chapter 2\nA long chapter ([[s3]] p. 9).\n")
+        _pn, _cn = split.plan_split(_s3_new, "Chapter 2", "s3--chapter-2", "Chapter 2 notes.", "Chapter 2", "s3", "2026-11-01")
+        open(s3p, "w").write(_pn)
+        open(os.path.join(tmp, "sources/s3--chapter-2.md"), "w").write(_cn)
+        _pf = parse_frontmatter(_cn)[0]
+        check("part note: type source-part, part_of the source, moved text under ## Notes",
+              _pf.get("type") == "source-part" and _pf.get("part_of") == "s3" and "## Notes\n\nA long chapter" in _cn)
+        _pages = wikimeta.load_pages()
+        _pages["c9p"] = [dict(dir="concepts", body="Uses chapter 2 ([[s3--chapter-2]] p. 9).", fields={"type": "concept"})]
+        check("part note: citing a part integrates its source", wikimeta.source_states(_pages)["SRCAAAA3"][1] == "integrated")
+        check("part note: a change to a part reaches the dependents of its source",
+              "c3" in wikimeta.propagate(_pages, "s3--chapter-2") and "c9p" in wikimeta.propagate(_pages, "s3"))
+        _idx = catalog.fix_index(wikimeta.load_pages(), "# Index\n", "2026-11-01")
+        check("part note: index lists it right after its source and does not count it as a source",
+              "- [[s3--chapter-2|Doe 2021, Source s3, part: Chapter 2]] — Chapter 2 notes. · part" in _idx and
+              _idx.index("[[s3|") < _idx.index("[[s3--chapter-2|") < _idx.index("[[s4|"))
+        _w = []
+        _e = []
+        wikilint.check_fields("s3--chapter-2", _pf, _e)
+        check("part note: lint accepts the part-note frontmatter", _e == [])
+        os.remove(os.path.join(tmp, "sources/s3--chapter-2.md"))
+        open(s3p, "w").write(_s3)
+        # ---- bounded lint output and cited-sentence review ----
+        sys.argv, _old = ["wikilint.py", "--since", "HEAD"], sys.argv
+        with contextlib.redirect_stdout(io.StringIO()) as _buf:
+            try:
+                wikilint.main()
+            except SystemExit:
+                pass
+        sys.argv = _old
+        check("lint --since: warnings are counted by category and detailed only for changed pages",
+              "warnings by category:" in _buf.getvalue() and "details below" in _buf.getvalue())
+        with open(wikimeta.PENDING, "a") as f:
+            f.write("- [ ] [[c3]] test item (cause: wiki:c1@abcd1234)\n")
+        out = run(review.cmd_list, context=True)
+        check("review list --context prints the lines that cite the changed page", "[[c1]]" in out and "Extends the idea" in out)
+        clear_queue()
 
         # ---- restatements: a corrected claim repeated on pages that do not cite the corrected page ----
         rp = {"c9": [dict(dir="concepts", body="Fixed claim.", fields={})],

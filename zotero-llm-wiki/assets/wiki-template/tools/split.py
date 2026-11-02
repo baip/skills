@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Split an oversized concept, entity or topic page (AGENTS.md §11; lint `size`) by moving one section,
-verbatim, to a new child page. The agent chooses the section, the child's name and its one-line summary; the
+"""Split an oversized concept, entity, topic or source page (AGENTS.md §11; lint `size`) by moving one
+section, verbatim, to a new child page. The child of a source page is a part note (`type: source-part`,
+`part_of: <source>`) in sources/: the same work's reading notes, not a second identity. The agent chooses the section, the child's name and its one-line summary; the
 tool moves the text, so nothing is retyped and no claim changes.
 
 Usage:
@@ -8,7 +9,10 @@ Usage:
 
   - HEADING is the exact text of a `##`, `###` or `####` heading in PARENT. The section runs to the next heading
     of the same or a higher level.
-  - CHILD (new, lowercase kebab-case) is created in concepts/ (entities/ for an entity parent) with the
+  - For a source PARENT, CHILD is PARENT--<part-slug>, a part note in sources/ (`type: source-part`,
+    `part_of: PARENT`, the summary, today's dates) whose body is `# TITLE`, a pointer back, `## Notes` with the
+    moved text and `## Connections`. Coverage, provenance and the reading history stay on the source page.
+  - Otherwise CHILD (new, lowercase kebab-case) is created in concepts/ (entities/ for an entity parent) with the
     parent's tags, `summary: TEXT`, `sources: []` (catalog.py --apply derives it) and today's dates. Its body is
     `# TITLE` (default: HEADING without a leading number), a pointer back to the parent, `## Details` holding the
     moved text with its subheadings re-levelled, and `## Related`.
@@ -32,6 +36,7 @@ import wikimeta  # noqa: E402
 
 HEADING = re.compile(r"^(#{2,4})\s+(.*?)\s*$")
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+PART = re.compile(r"^[^\s/|#\]\[]+--[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 def headings(body):
@@ -70,6 +75,16 @@ def plan_split(parent_text, heading, child, summary, title, parent_name, today):
     new_body = "\n".join(lines[:start + 1] + ["", f"{summary} → [[{child}]]", ""] + lines[end:])
     parent_new = parent_text[:len(parent_text) - len(body)] + new_body
 
+    if fields.get("type") == "source":
+        fm = ["type: source-part", f"part_of: {parent_name}", f"summary: {catalog.yaml_quote(summary)}",
+              f"created: {today}", f"updated: {today}"]
+        child_text = ("---\n" + "\n".join(fm) + "\n---\n"
+                      f"# {title}\n\n"
+                      f"→ [[{parent_name}]]. Part of the reading notes for this source, split from its page on {today};"
+                      " the text below moved verbatim. Coverage and provenance stay on the source page.\n\n"
+                      "## Notes\n\n" + "\n".join(relevel) + "\n\n"
+                      f"## Connections\n\n- [[{parent_name}]]\n")
+        return parent_new, child_text
     kind = "entity" if fields.get("type") == "entity" else "concept"
     tags = [t for t in fields.get("tags") or [] if isinstance(t, str)]
     fm = [f"type: {kind}", f"summary: {catalog.yaml_quote(summary)}"]
@@ -95,10 +110,12 @@ def main():
     p.add_argument("--apply", action="store_true")
     a = p.parse_args()
     pages = wikimeta.load_pages()
-    if a.parent not in pages or pages[a.parent][0]["dir"] not in ("concepts", "entities", "topics"):
-        sys.exit(f"{a.parent}: not a concept, entity or topic page")
-    if not SLUG.match(a.child) or a.child in pages:
-        sys.exit(f"{a.child}: needs a new lowercase kebab-case page name")
+    if a.parent not in pages or pages[a.parent][0]["fields"].get("type") not in ("concept", "entity", "topic", "source"):
+        sys.exit(f"{a.parent}: not a concept, entity, topic or source page")
+    is_source = pages[a.parent][0]["fields"].get("type") == "source"
+    if a.child in pages or not (PART.match(a.child) and a.child.startswith(a.parent + "--") if is_source else SLUG.match(a.child)):
+        sys.exit(f"{a.child}: needs a new page name, lowercase kebab-case"
+                 + (f", of the form {a.parent}--<part-slug> for a part note" if is_source else ""))
     if "\n" in a.summary or not a.summary.strip():
         sys.exit("--summary must be one nonempty line")
     vs = pages[a.parent][0]
@@ -113,7 +130,7 @@ def main():
     after = sorted(wikimeta.protected_text(parent_new) + wikimeta.protected_text(child_text))
     if before != after:
         sys.exit("protected text would change: split refused")
-    child_dir = "entities" if vs["dir"] == "entities" else "concepts"
+    child_dir = {"entities": "entities", "sources": "sources"}.get(vs["dir"], "concepts")
     child_path = os.path.join(wikimeta.WIKI, child_dir, a.child + ".md")
     print(f"{a.parent}: {len(text)} -> {len(parent_new)} bytes; {child_dir}/{a.child}.md: {len(child_text)} bytes")
     if a.apply:

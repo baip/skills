@@ -28,9 +28,13 @@ Usage:
   review.py done PAGE... --outcome O --basis TEXT [--cause ID]
                                               resolve open items (all causes, or one) and record them in
                                               reviewed.md; O = corrected | unchanged | not-affected
-  review.py list                              open items, grouped by page
+  review.py list [--context]                  open items, grouped by page; --context also prints, for each
+                                              item, the lines of the page that cite the changed page (or its
+                                              part notes), which is what a review reads first
 
-A (page, cause) already recorded in reviewed.md is not queued again, so `since` can be repeated until it
+Review a dependent by reading the sentences that cite the changed page (`list --context`), and open the whole
+page only when those sentences use the changed content; this keeps each review item's cost independent of page
+and wiki size. A (page, cause) already recorded in reviewed.md is not queued again, so `since` can be repeated until it
 queues nothing new. Record the basis honestly: *not-affected* means you checked that the page does not use the
 part that changed, not merely that a keyword search found nothing.
 """
@@ -174,13 +178,34 @@ def cmd_done(a):
     print(f"resolved {n} item(s) on {len(a.pages)} page(s) as {a.outcome}" + (f" (cause {a.cause})" if a.cause else ""))
 
 
+CAUSE_PAGE = re.compile(r"^(?:wiki|zotero):([^@]+)@")
+
+
+def citing_lines(pages, page, target, width=320):
+    """Lines of `page` (outside link-list sections and code) that link to `target` or to its part notes."""
+    if page not in pages:
+        return []
+    names = wikimeta.source_group(pages, target)
+    out = []
+    for line in wikimeta.strip_code(wikimeta.synthesis_body(pages[page][0]["body"])).split("\n"):
+        if names & set(wikimeta.links(line)):
+            out.append(line.strip()[:width])
+    return out
+
+
 def cmd_list(a):
     items, problems = wikimeta.pending_parse()
     by = {}
     for page, note, cause in items:
         by.setdefault(page, []).append(cause or "(no cause)")
+    pages = wikimeta.load_pages() if getattr(a, "context", False) else None
     for page in sorted(by):
         print(f"{page}: {', '.join(by[page])}")
+        for cause in by[page] if pages else []:
+            m = CAUSE_PAGE.match(cause)
+            if m:
+                for line in citing_lines(pages, page, m.group(1)) or ["(no citing line found: read the page)"]:
+                    print(f"    {line}")
     for p in problems:
         print("PROBLEM", p)
     print(f"{len(items)} open item(s) on {len(by)} page(s)")
@@ -204,7 +229,7 @@ def main():
     s.add_argument("--reason", default="claim corrected")
     s = sub.add_parser("done"); s.add_argument("pages", nargs="+"); s.add_argument("--cause")
     s.add_argument("--outcome", required=True, choices=wikimeta.OUTCOMES); s.add_argument("--basis", required=True)
-    sub.add_parser("list")
+    s = sub.add_parser("list"); s.add_argument("--context", action="store_true")
     a = p.parse_args()
     globals()["cmd_" + a.cmd](a)
 

@@ -102,6 +102,15 @@ a generated index read through `catalog.py --nav` with summaries in frontmatter,
 additive edits exempt from propagation (dependents rest on existing sentences, which an insertion leaves intact), and a
 40,000-byte limit on summary pages with `split.py` moving sections verbatim.
 
+The same day the goal was sharpened to *ingest cost independent of wiki size*, checking every ingest step for
+reads that grow with the wiki: orientation became the Topics list only; readers take link candidates from a search
+and get a short brief instead of the full schema (with one paper per context the bootstrap is paid per paper);
+reviews read the sentences that cite the changed page before opening a dependent; lint with `--since` details only
+changed pages; generated files are checked by `git diff --stat`; batch queues and orchestrator state live outside the
+wiki; and the size limit covers source pages (split into `source-part` notes tied to one identity) and analyses
+(historical ones frozen). What still grows is the number of review items after a correction to a heavily cited
+page, and search and lint run time.
+
 ## 8. Known limits
 
 - One user library only; group libraries need `zot.py` extended to `/api/groups/<id>`.

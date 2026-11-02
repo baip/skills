@@ -13,8 +13,9 @@ them by hand. Editorial text (summaries, synthesis, reading histories) is never 
 
 Usage:
   catalog.py [--apply]                 dry run by default (prints what would change); --apply writes
-  catalog.py --nav                     print the index without its Sources section: the orientation read at
-                                       session start (AGENTS.md §8.1), so nobody reads the whole index
+  catalog.py --nav                     print the index preamble and its Topics section only: the orientation
+                                       read at session start (AGENTS.md §8.1). It grows with the number of
+                                       topics, not pages; every other page is found by search
   catalog.py --adopt-index-summaries [--apply]
                                        copy each page's summary from its index.md line into a `summary:`
                                        field, for pages that lack one (one-time migration)
@@ -94,14 +95,22 @@ def first_author(f):
     return "Uncredited" if f.get("author_status") == "uncredited" else "No verified author"
 
 
-def display(vs, name):
-    """'First-author year, title' for a source, the `# ` heading for other pages; safe inside a wikilink."""
+def heading(vs, name):
+    h = re.search(r"(?m)^# (.+?)\s*$", vs["body"])
+    return h.group(1) if h else name
+
+
+def display(vs, name, pages=None):
+    """'First-author year, title' for a source, '<source display>, part: <heading>' for a part note, the
+    `# ` heading for other pages; safe inside a wikilink."""
     f = vs["fields"]
-    if vs["dir"] == "sources":
+    parent = str(f.get("part_of") or "")
+    if f.get("type") == "source-part" and pages and parent in pages:
+        d = f"{display(pages[parent][0], parent)}, part: {heading(vs, name)}"
+    elif vs["dir"] == "sources" and f.get("type") != "source-part":
         d = f"{first_author(f)} {f.get('year', 'undated')}, {f.get('title') or name}"
     else:
-        h = re.search(r"(?m)^# (.+?)\s*$", vs["body"])
-        d = h.group(1) if h else name
+        d = heading(vs, name)
     return " ".join(str(d).replace("|", "/").replace("[", "(").replace("]", ")").split())
 
 
@@ -125,9 +134,11 @@ def index_summaries(text):
 def index_line(pages, name, prefixes, fallback):
     vs = pages[name][0]
     f = vs["fields"]
-    d = display(vs, name)
+    d = display(vs, name, pages)
     summ = summary_of(f) or fallback.get(name)
-    if vs["dir"] == "sources":
+    if f.get("type") == "source-part":
+        meta = " · part"
+    elif vs["dir"] == "sources":
         meta = source_meta(f, prefixes)
     else:
         n = len(f.get("sources") or []) if isinstance(f.get("sources"), list) else 0
@@ -137,6 +148,9 @@ def index_line(pages, name, prefixes, fallback):
 
 def sort_key(pages, name):
     vs = pages[name][0]
+    parent = str(vs["fields"].get("part_of") or "")
+    if vs["fields"].get("type") == "source-part" and parent in pages:
+        return sort_key(pages, parent) + (name.casefold(),)  # right after its source
     if vs["dir"] == "sources":
         return (first_author(vs["fields"]).casefold(), str(vs["fields"].get("year", "")), name.casefold())
     return (name.casefold(),)
@@ -161,7 +175,8 @@ def preamble(text):
 
 def fix_index(pages, text, today):
     new = preamble(text) + "\n\n" + "\n".join(index_sections(pages, index_summaries(text))) + "\n"
-    c = {d: sum(1 for vs in pages.values() if vs[0]["dir"] == d) for d in SECTION_DIRS.values()}
+    c = {d: sum(1 for vs in pages.values() if vs[0]["dir"] == d and vs[0]["fields"].get("type") != "source-part")
+         for d in SECTION_DIRS.values()}  # part notes are not counted as sources
     header = (f"**{plural(c['topics'], 'topic', 'topics')} · {plural(c['sources'], 'source', 'sources')} · "
               f"{plural(c['concepts'], 'concept', 'concepts')} · {plural(c['entities'], 'entity', 'entities')} · "
               f"{plural(c['analyses'], 'analysis', 'analyses')}**")
@@ -172,8 +187,9 @@ def fix_index(pages, text, today):
 
 
 def nav(pages, text):
-    """The index without its Sources section: the orientation read at session start."""
-    return preamble(text) + "\n\n" + "\n".join(index_sections(pages, index_summaries(text), skip=("Sources",))) + "\n"
+    """The index preamble and Topics section: the orientation read at session start."""
+    skip = [s for s in SECTIONS if s != "Topics"]
+    return preamble(text) + "\n\n" + "\n".join(index_sections(pages, index_summaries(text), skip=skip)) + "\n"
 
 
 def yaml_quote(s):
