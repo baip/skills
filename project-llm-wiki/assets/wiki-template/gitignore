@@ -1,0 +1,19 @@
+# OS and cloud-sync litter
+.DS_Store
+Icon?
+.tmp.drive*
+*.gdoc
+desktop.ini
+*(conflicted copy*)*
+*(Conflicted copy*)*
+.dropbox
+.dropbox.attr
+# Python
+__pycache__/
+*.pyc
+# Obsidian: UI state (open panes, graph zoom) changes constantly; keep the other settings
+.obsidian/workspace*.json
+.obsidian/graph.json
+.*.tmp
+# qmd search index: a link to a folder outside cloud sync (or a real folder from `qmd init`); never committed
+/.qmd
