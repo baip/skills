@@ -42,6 +42,7 @@ section that matches the question; nothing here is needed for routine work.
   reusing it is the point, so verbatim passages are allowed, but only in `[!reuse]` blocks on the source page they come
   from (provenance and drift are then checked with that page), protected from rewriting tools like `[!user]`, and
   never for text by others.
+- **Long documents.** The Zotero wiki read books over 150 pages by chapter. Here the rule covers theses and books of any length and any other document over 100 pages (solicitations run to about 130, final reports and theses to 100-200): front matter plus chosen chapters, each in full, with the whole chapter map recorded, so unread chapters stay visible. Ported on the user's request while ingesting a 131-page thesis (2026-11-02).
 - **Reading modes.** `rendered` (pages viewed as images) stays the default. `source` is new: LaTeX is better read from
   its source than from a rendering, and Word or PowerPoint text plus every embedded image is close to a rendering
   when no converter is available. `abstract` was dropped (documents have no separate abstract) and `supplement`

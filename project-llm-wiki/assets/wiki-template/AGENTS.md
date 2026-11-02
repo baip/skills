@@ -249,6 +249,13 @@ the page stresses and why; use §8.2b for more than about 5 documents.
 3. **Read** it in full: every page or slide, and every figure and table with its caption (§7). Less than that is
    `partial`, with what was skipped and why. Record the section→page (or slide) map. Targeted reading to answer a
    question belongs to a query (§8.3) and is never presented as a completed ingest.
+   **Long documents** (theses and books of any length, and any other document over 100 pages, such as a funding
+   solicitation or a final report) are read in part by default: the front matter (title page, abstract or executive
+   summary, table of contents) and chosen chapters or sections, each read in full with its figures and tables. The
+   user chooses them (in guided mode, or in the request); otherwise choose those relevant to the project or topic
+   the document was named for, and list them in the log. Record the whole document's chapter→page map, and each
+   chapter not read with the reason "long document, read in part". `read_depth` is `partial`. (Rule ported
+   2026-11-02 from the Zotero-backed wiki's book rule, which the user asked for when ingesting a 131-page thesis.)
 4. *(Guided)* **Discuss**: 3–6 takeaways, what looks reusable, pages to touch, tensions with the wiki. Ask what to
    emphasize and record it under `## User notes`.
 5. **Write the source page**, then `docs.py stamp`.
