@@ -136,7 +136,9 @@ Lint checks the line format, outcome, basis length and links.
 - **Bounded reads.** Give each reader `tools/reader-brief.md` plus its assignment (key, filename, cache folder, batch notes)
   and each integrator `tools/integrator-brief.md` plus its pages, briefs and sources. Readers take link candidates from a
   search for their paper, never a full list of pages; integrators read briefs and the pages they own. Keep batch
-  queues, inventories, briefs and the orchestrator's state file in a cache folder outside the wiki.
+  queues, inventories, briefs and the orchestrator's state file in a cache folder outside the wiki, one folder per
+  batch (`~/.cache/zotero-wiki/<wiki>-<batch>/`). Delete it when the batch is complete and committed: the briefs,
+  reports and drafts in it are derived from pages that now exist, and next ingests belong in the log's `next:` line.
   Nobody reads `index.md`, `log.md` or `reviewed.md` whole: use `catalog.py --nav`, `grep`, and the tools.
 - **With subagents** (Claude Code allows 20 concurrent subagents by default, `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`):
   keep the reader and integrator instruction files in a temp directory outside the wiki (in Claude Code, the session
