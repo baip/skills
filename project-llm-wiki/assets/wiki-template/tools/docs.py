@@ -569,7 +569,7 @@ def to_pdf(path, h):
     tried = []
     for conv in converters(ext):
         if conv == "libreoffice":
-            profile = pathlib.Path(out_dir("lo-profile")).as_uri()
+            profile = pathlib.Path(out_dir("lo-profile", h)).as_uri()  # one per document: parallel readers may convert at once
             r = subprocess.run([soffice(), f"-env:UserInstallation={profile}", "--headless", "--convert-to", "pdf",
                                 "--outdir", d, path], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
         else:

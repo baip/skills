@@ -247,6 +247,16 @@ docs.office_app = lambda kind: False
 docs.soffice = lambda: None
 check("converters: none available -> advice to install, not a crash",
       docs.converters(".docx") == [] and refused(docs.to_pdf, _docx, "deadbeef"))
+docs.office_app = lambda kind: False
+docs.soffice = lambda: "/x/soffice"
+_calls, _real_run, _real_tmp = [], docs.subprocess.run, docs.TMP
+docs.TMP = tempfile.mkdtemp(prefix="wiki-lo-test-")
+docs.subprocess.run = lambda cmd, **k: _calls.append(cmd) or argparse.Namespace(returncode=1, stdout="", stderr="x")
+refused(docs.to_pdf, _docx, "aaaa0001")
+refused(docs.to_pdf, _pptx, "aaaa0002")
+docs.subprocess.run, docs.TMP = _real_run, _real_tmp
+check("LibreOffice: each document converts with its own profile, so parallel conversions do not collide",
+      len(_calls) == 2 and _calls[0][1] != _calls[1][1] and "aaaa0001" in _calls[0][1] and "aaaa0002" in _calls[1][1])
 docs.office_app, docs.soffice = _saved
 check("Office commands are AppleScript on macOS and PowerShell elsewhere",
       (docs.office_command("word", "a", "b")[0] == "osascript") == (sys.platform == "darwin"))
