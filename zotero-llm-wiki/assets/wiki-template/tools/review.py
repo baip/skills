@@ -9,12 +9,18 @@ each other, their dependents. A queued page propagates further only if reviewing
 which you then report with `touched` or `since`. Measured 2026-10-18: a full transitive closure queues a
 median of 136 of 139 pages; these rules give a median of 15 for a source change and 5 for a synthesis page.
 
+`since` does not propagate an *additive* edit: one that only inserts whole lines and keeps every existing
+non-blank line, in order (blank lines are ignored). Dependents rest on the existing sentences, which are intact.
+An inserted [!contradiction] or [!stale] callout line still propagates, because it questions existing content.
+An insertion that narrows an existing claim must also edit that claim (AGENTS.md §6.8), and that edit propagates.
+
 Usage:
   review.py touched PAGE... [--reason TEXT]   queue the dependents of pages whose content you changed
   review.py since REV [--queue] [--neutral PAGE...]
                                               pages whose body changed since git REV, and their dependents;
-                                              --neutral names claim-neutral edits (locators, typos, wording
-                                              that keeps the meaning), which are listed but not propagated
+                                              additive edits (inserted lines only) are listed but not
+                                              propagated; --neutral names claim-neutral edits (locators,
+                                              typos, wording that keeps the meaning), also not propagated
   review.py restated PAGE --phrase TEXT... [--reason TEXT]
                                               after correcting a claim on PAGE, queue every other page whose
                                               body still contains one of the phrases (case-insensitive), so
@@ -22,15 +28,20 @@ Usage:
   review.py done PAGE... --outcome O --basis TEXT [--cause ID]
                                               resolve open items (all causes, or one) and record them in
                                               reviewed.md; O = corrected | unchanged | not-affected
-  review.py list                              open items, grouped by page
+  review.py list [--context]                  open items, grouped by page; --context also prints, for each
+                                              item, the lines of the page that cite the changed page (or its
+                                              part notes), which is what a review reads first
 
-A (page, cause) already recorded in reviewed.md is not queued again, so `since` can be repeated until it
+Review a dependent by reading the sentences that cite the changed page (`list --context`), and open the whole
+page only when those sentences use the changed content; this keeps each review item's cost independent of page
+and wiki size. A (page, cause) already recorded in reviewed.md is not queued again, so `since` can be repeated until it
 queues nothing new. Record the basis honestly: *not-affected* means you checked that the page does not use the
 part that changed, not merely that a keyword search found nothing.
 """
 import argparse
 import datetime
 import os
+import re
 import subprocess
 import sys
 
@@ -104,6 +115,21 @@ def cmd_restated(a):
     report(entries)
 
 
+FLAG_CALLOUT = re.compile(r"\[!(?:contradiction|stale)\b", re.I)
+
+
+def additive(old_text, new_text):
+    """True when the new body only inserts lines into the old one: every non-blank old line survives unchanged
+    and in order, and no [!contradiction] or [!stale] callout was added."""
+    old = [ln.rstrip() for ln in wikimeta.parse_frontmatter(old_text)[1].splitlines() if ln.strip()]
+    new = [ln.rstrip() for ln in wikimeta.parse_frontmatter(new_text)[1].splitlines() if ln.strip()]
+    rest = iter(new)
+    if not all(any(ln == n for n in rest) for ln in old):  # greedy subsequence test
+        return False
+    count = lambda lines: sum(1 for ln in lines if FLAG_CALLOUT.search(ln))
+    return count(new) <= count(old)
+
+
 def git(*args):
     return subprocess.run(["git", "-C", wikimeta.WIKI, *args], capture_output=True, text=True)
 
@@ -113,7 +139,7 @@ def cmd_since(a):
     diff = git("diff", "--name-only", a.rev, "--", *wikimeta.DIRS)
     if diff.returncode:
         sys.exit(diff.stderr.strip())
-    changed, new = [], []
+    changed, new, added = [], [], []
     for rel in diff.stdout.split():
         name = os.path.basename(rel)[:-3] if rel.endswith(".md") else None
         if not name or name not in pages:
@@ -124,11 +150,13 @@ def cmd_since(a):
             continue
         now = open(pages[name][0]["path"]).read()
         if wikimeta.body_hash(old.stdout) != wikimeta.body_hash(now):
-            changed.append(name)
+            (added if additive(old.stdout, now) else changed).append(name)
     neutral = [n for n in changed if n in (getattr(a, "neutral", None) or [])]
     changed = [n for n in changed if n not in neutral]
     if neutral:
         print(f"claim-neutral, not propagated (list them in the log): {', '.join(neutral)}")
+    if added:
+        print(f"{len(added)} additive edit(s), only inserted lines, not propagated (count them in the log): {', '.join(added)}")
     entries = []
     for name in changed:
         cause = f"wiki:{name}@{wikimeta.body_hash(open(pages[name][0]['path']).read())}"
@@ -150,13 +178,34 @@ def cmd_done(a):
     print(f"resolved {n} item(s) on {len(a.pages)} page(s) as {a.outcome}" + (f" (cause {a.cause})" if a.cause else ""))
 
 
+CAUSE_PAGE = re.compile(r"^(?:wiki|zotero):([^@]+)@")
+
+
+def citing_lines(pages, page, target, width=320):
+    """Lines of `page` (outside link-list sections and code) that link to `target` or to its part notes."""
+    if page not in pages:
+        return []
+    names = wikimeta.source_group(pages, target)
+    out = []
+    for line in wikimeta.strip_code(wikimeta.synthesis_body(pages[page][0]["body"])).split("\n"):
+        if names & set(wikimeta.links(line)):
+            out.append(line.strip()[:width])
+    return out
+
+
 def cmd_list(a):
     items, problems = wikimeta.pending_parse()
     by = {}
     for page, note, cause in items:
         by.setdefault(page, []).append(cause or "(no cause)")
+    pages = wikimeta.load_pages() if getattr(a, "context", False) else None
     for page in sorted(by):
         print(f"{page}: {', '.join(by[page])}")
+        for cause in by[page] if pages else []:
+            m = CAUSE_PAGE.match(cause)
+            if m:
+                for line in citing_lines(pages, page, m.group(1)) or ["(no citing line found: read the page)"]:
+                    print(f"    {line}")
     for p in problems:
         print("PROBLEM", p)
     print(f"{len(items)} open item(s) on {len(by)} page(s)")
@@ -180,7 +229,7 @@ def main():
     s.add_argument("--reason", default="claim corrected")
     s = sub.add_parser("done"); s.add_argument("pages", nargs="+"); s.add_argument("--cause")
     s.add_argument("--outcome", required=True, choices=wikimeta.OUTCOMES); s.add_argument("--basis", required=True)
-    sub.add_parser("list")
+    s = sub.add_parser("list"); s.add_argument("--context", action="store_true")
     a = p.parse_args()
     globals()["cmd_" + a.cmd](a)
 

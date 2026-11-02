@@ -1,14 +1,26 @@
 #!/usr/bin/env python3
 """Generated bookkeeping (AGENTS.md §9): fields that follow from the pages themselves, so nobody maintains
-them by hand. Editorial text (index summaries, synthesis, reading histories) is never touched.
+them by hand. Editorial text (summaries, synthesis, reading histories) is never rewritten.
 
   - `sources:` of concept, entity, topic and analysis pages = exactly the source pages their body cites
     (existing order kept, new ones appended in sorted order);
-  - index.md: the page counts in the header, and the trailing metadata of each line
-    (sources: `· <collection> · <read_depth>`; other pages: `· <n> sources`).
+  - index.md, written whole below its preamble (the text before the first `## ` heading, kept as is apart
+    from the count header): one line per page, `- [[page|Display]] — summary · <metadata>`, sorted (sources
+    by first author, year and name; other pages by name). Display is "First-author year, title" for sources
+    and the page's `# ` heading otherwise; the summary is the page's `summary:` field (one line, about 200
+    characters). A page without one keeps the summary its current index line has, so nothing editorial is
+    lost before `--adopt-index-summaries` has moved those summaries into the pages.
 
-Dry run by default (prints what would change); pass --apply to write. wikilint.py reports any drift as a
-`catalog` warning, so the strict gate fails until this has been run.
+Usage:
+  catalog.py [--apply]                 dry run by default (prints what would change); --apply writes
+  catalog.py --nav                     print the index preamble and its Topics section only: the orientation
+                                       read at session start (AGENTS.md §8.1). It grows with the number of
+                                       topics, not pages; every other page is found by search
+  catalog.py --adopt-index-summaries [--apply]
+                                       copy each page's summary from its index.md line into a `summary:`
+                                       field, for pages that lack one (one-time migration)
+
+wikilint.py reports drift as a `catalog` warning, so the strict gate fails until this has been run.
 """
 import datetime
 import os
@@ -69,31 +81,102 @@ def fix_sources(pages, name, text):
     return head2 + rest if n else text
 
 
-def fix_index(pages, text, today):
-    prefixes = mirrored_prefixes(pages)
-    counts = {d: sum(1 for vs in pages.values() if vs[0]["dir"] == d) for d in SECTION_DIRS.values()}
-    out, section = [], None
-    for line in text.split("\n"):
-        h = re.match(r"^## (\w+)", line)
-        if h:
-            section = SECTION_DIRS.get(h.group(1))
-        m = LINE.match(line)
-        if m and section and m.group(1).strip() in pages:
-            name = m.group(1).strip()
-            f = pages[name][0]["fields"]
-            if section == "sources":
-                base, meta = SRC_META.sub("", line), source_meta(f, prefixes)
-            else:
-                base = N_META.sub("", line)
-                n = len(f.get("sources") or []) if isinstance(f.get("sources"), list) else 0
-                meta = f" · {n} source" + ("" if n == 1 else "s")
-            line = base + meta
-        out.append(line)
-    new = "\n".join(out)
-    c = counts
+SECTIONS = ("Topics", "Sources", "Concepts", "Entities", "Analyses")
 
-    def plural(n, one, many):
-        return f"{n} {one if n == 1 else many}"
+
+def plural(n, one, many):
+    return f"{n} {one if n == 1 else many}"
+
+
+def first_author(f):
+    a = [x for x in f.get("authors") or [] if isinstance(x, str)]
+    if a and a[0] != "et al.":
+        return a[0].split(",")[0].strip()
+    return "Uncredited" if f.get("author_status") == "uncredited" else "No verified author"
+
+
+def heading(vs, name):
+    h = re.search(r"(?m)^# (.+?)\s*$", vs["body"])
+    return h.group(1) if h else name
+
+
+def display(vs, name, pages=None):
+    """'First-author year, title' for a source, '<source display>, part: <heading>' for a part note, the
+    `# ` heading for other pages; safe inside a wikilink."""
+    f = vs["fields"]
+    parent = str(f.get("part_of") or "")
+    if f.get("type") == "source-part" and pages and parent in pages:
+        d = f"{display(pages[parent][0], parent)}, part: {heading(vs, name)}"
+    elif vs["dir"] == "sources" and f.get("type") != "source-part":
+        d = f"{first_author(f)} {f.get('year', 'undated')}, {f.get('title') or name}"
+    else:
+        d = heading(vs, name)
+    return " ".join(str(d).replace("|", "/").replace("[", "(").replace("]", ")").split())
+
+
+def summary_of(f):
+    v = f.get("summary")
+    return " ".join(v.split()) if isinstance(v, str) and v.strip() else None
+
+
+def index_summaries(text):
+    """{page: summary} from existing index lines (the text after ' — ', without the generated metadata)."""
+    out = {}
+    for line in text.split("\n"):
+        m = LINE.match(line)
+        if m and line[m.end():].startswith(" — "):
+            summ = N_META.sub("", SRC_META.sub("", line[m.end() + 3:])).strip()
+            if summ:
+                out[m.group(1).strip()] = summ
+    return out
+
+
+def index_line(pages, name, prefixes, fallback):
+    vs = pages[name][0]
+    f = vs["fields"]
+    d = display(vs, name, pages)
+    summ = summary_of(f) or fallback.get(name)
+    if f.get("type") == "source-part":
+        meta = " · part"
+    elif vs["dir"] == "sources":
+        meta = source_meta(f, prefixes)
+    else:
+        n = len(f.get("sources") or []) if isinstance(f.get("sources"), list) else 0
+        meta = f" · {n} source" + ("" if n == 1 else "s")
+    return f"- [[{name}" + ("" if d == name else f"|{d}") + "]]" + (f" — {summ}" if summ else "") + meta
+
+
+def sort_key(pages, name):
+    vs = pages[name][0]
+    parent = str(vs["fields"].get("part_of") or "")
+    if vs["fields"].get("type") == "source-part" and parent in pages:
+        return sort_key(pages, parent) + (name.casefold(),)  # right after its source
+    if vs["dir"] == "sources":
+        return (first_author(vs["fields"]).casefold(), str(vs["fields"].get("year", "")), name.casefold())
+    return (name.casefold(),)
+
+
+def index_sections(pages, fallback, skip=()):
+    prefixes = mirrored_prefixes(pages)
+    out = []
+    for sec in SECTIONS:
+        if sec in skip:
+            continue
+        names = sorted((n for n, vs in pages.items() if vs[0]["dir"] == SECTION_DIRS[sec]),
+                       key=lambda n: sort_key(pages, n))
+        out += [f"## {sec}"] + [index_line(pages, n, prefixes, fallback) for n in names]
+    return out
+
+
+def preamble(text):
+    m = re.search(r"(?m)^## ", text)
+    return (text[:m.start()] if m else text).rstrip("\n")
+
+
+def fix_index(pages, text, today):
+    new = preamble(text) + "\n\n" + "\n".join(index_sections(pages, index_summaries(text))) + "\n"
+    c = {d: sum(1 for vs in pages.values() if vs[0]["dir"] == d and vs[0]["fields"].get("type") != "source-part")
+         for d in SECTION_DIRS.values()}  # part notes are not counted as sources
     header = (f"**{plural(c['topics'], 'topic', 'topics')} · {plural(c['sources'], 'source', 'sources')} · "
               f"{plural(c['concepts'], 'concept', 'concepts')} · {plural(c['entities'], 'entity', 'entities')} · "
               f"{plural(c['analyses'], 'analysis', 'analyses')}**")
@@ -101,6 +184,44 @@ def fix_index(pages, text, today):
     if m and (new != text or not m.group(0).startswith(header + " ·")):  # anything regenerated: restamp the date
         new = new[:m.start()] + f"{header} · updated {today}" + new[m.end():]
     return new
+
+
+def nav(pages, text):
+    """The index preamble and Topics section: the orientation read at session start."""
+    skip = [s for s in SECTIONS if s != "Topics"]
+    return preamble(text) + "\n\n" + "\n".join(index_sections(pages, index_summaries(text), skip=skip)) + "\n"
+
+
+def yaml_quote(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def adopt_summaries(apply):
+    """Copy summaries from index.md lines into pages without a `summary:` field (one-time migration)."""
+    pages = wikimeta.load_pages()
+    idx = os.path.join(wikimeta.WIKI, "index.md")
+    found = index_summaries(open(idx).read()) if os.path.exists(idx) else {}
+    n = 0
+    for name, summ in sorted(found.items()):
+        if name not in pages or summary_of(pages[name][0]["fields"]):
+            continue
+        path = pages[name][0]["path"]
+        text = open(path).read()
+        fm_end = text.index("\n---", 3)
+        lines = text[:fm_end].split("\n")
+        at = next((i for i, ln in enumerate(lines) if ln.startswith("title:")), None)
+        if at is None:
+            at = next((i for i, ln in enumerate(lines) if ln.startswith("type:")), len(lines) - 1)
+        lines.insert(at + 1, "summary: " + yaml_quote(summ))
+        new = "\n".join(lines) + text[fm_end:]
+        fields, _, errors = wikimeta.parse_frontmatter(new)
+        if errors or fields.get("summary") != summ:
+            print(f"SKIPPED {name}: the quoted summary does not parse back unchanged")
+            continue
+        n += 1
+        if apply:
+            wikimeta.atomic_write(path, new)
+    print(f"{n} page(s) {'given' if apply else 'would get (dry run)'} a summary: field from index.md")
 
 
 def plan(today=None):
@@ -130,6 +251,11 @@ def plan(today=None):
 
 def main():
     apply = "--apply" in sys.argv
+    if "--adopt-index-summaries" in sys.argv:
+        return adopt_summaries(apply)
+    if "--nav" in sys.argv:
+        idx = os.path.join(wikimeta.WIKI, "index.md")
+        return print(nav(wikimeta.load_pages(), open(idx).read() if os.path.exists(idx) else "# Index\n"), end="")
     changes = plan()
     for path, new, label in changes:
         old = open(path).read()

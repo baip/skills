@@ -272,6 +272,7 @@ def source_states(pages=None):
                  concept, entity or topic page. A structural proxy: the source is used somewhere, not
                  proof that every claim it bears on has been synthesized.
 
+    Citing a part note (`type: source-part`, `part_of: <source>`) counts as citing its source.
     A page that sets `version_of:` counts as integrated once the version it names is itself cited:
     the schema cites the later version and counts works, not pages (AGENTS.md §4), so the earlier
     version is deliberately left uncited and must not be reported as unintegrated.
@@ -282,6 +283,9 @@ def source_states(pages=None):
         for pg in versions:
             if pg["dir"] in ("concepts", "entities", "topics"):
                 cited |= links(synthesis_body(pg["body"]))
+    for name, versions in pages.items():  # citing a part of a source's notes cites the source
+        if name in cited and versions[0]["fields"].get("type") == "source-part":
+            cited.add(str(versions[0]["fields"].get("part_of") or "").strip())
     out = {}
     for name, versions in pages.items():
         for pg in versions:
@@ -339,6 +343,16 @@ def dependents(pages, name, index=None):
     return sorted((index or evidence_index(pages)).get(name, ()))
 
 
+def source_group(pages, name):
+    """A source page and its part notes (`type: source-part`, `part_of:`), from any member; else {name}."""
+    if name not in pages:
+        return {name}
+    f = pages[name][0]["fields"]
+    root = str(f.get("part_of") or "").strip() if f.get("type") == "source-part" else name
+    return {root} | {n for n, vs in pages.items()
+                     if vs[0]["fields"].get("type") == "source-part" and str(vs[0]["fields"].get("part_of") or "").strip() == root}
+
+
 def propagate(pages, start, index=None):
     """Pages to review when `start` changes: its direct dependents. When `start` is a *source* page, also
     (transitively) the dependents of every source page that cites it, because a source page that quotes
@@ -348,7 +362,8 @@ def propagate(pages, start, index=None):
     Cycle-safe. Returns {page: via}, where via is the source page through which it was reached (None = direct)."""
     index = index or evidence_index(pages)
     chain = pages[start][0]["dir"] == "sources" if start in pages else False
-    out, frontier, seen = {}, [(start, None)], {start}
+    group = source_group(pages, start)  # a source and its part notes change together
+    out, frontier, seen = {}, [(g, None) for g in sorted(group)], set(group)
     while frontier:
         node, via = frontier.pop()
         for d in sorted(index.get(node, ())):
