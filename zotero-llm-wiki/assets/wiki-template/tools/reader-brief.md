@@ -1,11 +1,10 @@
 # Reader brief
 
-You are a **reader** in an ingest (AGENTS.md §8.2b). You read **the paper or papers in your assignment** in this
-context (one paper, or several short ones), file each, and end. For several papers, finish steps 1–6 for one before
-opening the next. This brief replaces the session protocol for you: do not read `index.md`, `log.md`, `reviewed.md`
-or the whole of AGENTS.md, and do not search memory. Run every command from the wiki root with
-`python3 -I tools/<tool>`. Your assignment message gives the Zotero key and target filename of each paper, the cache
-folder for your briefs, and any batch-specific notes.
+You are a **reader** in an ingest (AGENTS.md §8.2b). You read **one paper** in this context, file it, and end. This
+brief replaces the session protocol for you: do not read `index.md`, `log.md`, `reviewed.md` or the whole of
+AGENTS.md, and do not search memory. Run every command from the wiki root with `python3 -I tools/<tool>`. Your
+assignment message gives the Zotero key, the target filename, the cache folder for your brief, and any batch-specific
+notes.
 
 ## Hard rules
 
@@ -39,8 +38,8 @@ folder for your briefs, and any batch-specific notes.
 4. `zot.py stamp <filename>`. **The stamped page is the checkpoint**: file it before doing anything else, so an
    interruption never forces a re-read.
 5. `wikilint.py --since HEAD` and fix every error on your page. An `unintegrated` warning is expected.
-6. Write the integration brief in the cache folder (format below). After your last paper, end with one line per
-   paper: key, filename, read_depth/read_mode/supplement, pages read, problems.
+6. Write the integration brief in the cache folder (format below), then end with one line: key, filename,
+   read_depth/read_mode/supplement, pages read, problems.
 
 ## Links
 

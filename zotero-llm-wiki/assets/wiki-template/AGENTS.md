@@ -237,8 +237,9 @@ subagents runs the same phases in order in one session. Details in tools/README.
 **Context per agent.** Everything an agent reads stays in its context and is sent again with every later call, so
 each reader, integrator and phase gets a fresh context with a bounded load (rules added 2026-11-01, and 2026-11-02 after
 integrators holding 25–40 pages each used half of a run's tokens):
-- A reader takes one paper, or several short papers totalling at most about 40 rendered pages, and ends after writing
-  their pages and briefs. Never hand a reader that has finished its assignment another paper.
+- A reader takes exactly one paper and ends after writing its page and brief. Never hand it a second paper, even a
+  short one: an earlier paper in its context could shape the next page, which must be written from its own paper
+  alone (§8.2).
 - An integrator owns at most about 10 pages, fewer when they are long. Split a larger page set across more integrators;
   never merge groups to have fewer.
 - A limit on subagents (the user's, or the agent's) is a limit on how many run at once. Run the groups in waves within

@@ -112,12 +112,12 @@ Lint checks the line format, outcome, basis length and links.
   open question, and unresolved problems. The main agent runs lint until clean and writes one log entry for the batch.
 - Completion is judged by AGENTS.md §8.2, not by whether pages exist. Report what changed in the synthesis.
 
-- **One reader context per assignment** (AGENTS.md §8.2b). Start a fresh reader subagent (or Codex session) for each
-  paper, or for several short papers totalling at most about 40 rendered pages, and let it end after its pages and
-  briefs. Bundling short papers spreads the reader's startup (system prompt, tools, brief) over them: measured
-  2026-11-02, readers cost about 0.40M input-equivalent tokens per paper with one paper each and about 0.34M with 2–3
-  papers each. Do not resume a finished reader with a new paper, and do not resume readers after a usage-limit stop:
-  start new ones and let them check which pages exist.
+- **One paper per reader context** (AGENTS.md §8.2b). Start a fresh reader subagent (or Codex session) for each paper
+  and let it end after its page and brief. Do not resume a finished reader with a new paper, and do not resume readers
+  after a usage-limit stop: start new ones and let them check which pages exist. Bundling short papers would spread
+  the reader's startup (system prompt, tools, brief) over them (measured 2026-11-02: about 0.40M input-equivalent
+  tokens per paper with one paper each, about 0.34M with 2–3, different papers), but it was rejected the same day
+  because an earlier paper in the context could shape the next page.
   Rendered page images stay in a context and are sent again with every later call, so a reader that reads ten papers
   pays for the first nine again on each call of the tenth. Measured 2026-11-01 in Codex logs: mean input per call in
   wiki sessions rose from about 60k tokens (2026-10-25 to 28) to about 240k (2026-10-30 to 11-01).

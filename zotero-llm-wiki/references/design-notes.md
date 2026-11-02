@@ -120,11 +120,13 @@ because every fresh reader pays its startup again. Integration cost more than al
 subagents had been met by merging 9 page groups into 4, so each integrator held 25–40 pages, plus whole-brief grep
 output, in one context (mean 200–258k tokens per call, 13.4M of the run's 25.5M). The orchestrator also kept one
 session through all phases (300k tokens per call). The rules now bound what one context holds, not only what one file
-holds: readers may bundle short papers up to about 40 rendered pages, integrators own at most about 10 pages, a cap on
-subagents means waves rather than merged groups, each integrator gets its own slice of the briefs, command output is
-bounded, subagents report through files, and the orchestrator works one phase per session. Integration cost is
-roughly the number of target pages times the pages per integrator, so this should cut it about 3-fold (an estimate,
-not yet measured).
+holds: integrators own at most about 10 pages, a cap on subagents means waves rather than merged groups, each
+integrator gets its own slice of the briefs, command output is bounded, subagents report through files, and the
+orchestrator works one phase per session. Integration cost is roughly the number of target pages times the pages per
+integrator, so this should cut it about 3-fold (an estimate, not yet measured). Bundling short papers per reader was
+adopted and reverted the same day: it saves about 15 % of reading, but an earlier paper in the context could shape
+the next page, which must be written from its own paper alone. One paper per reader is the price of that
+independence.
 
 ## 8. Known limits
 
