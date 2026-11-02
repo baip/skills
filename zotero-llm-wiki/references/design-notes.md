@@ -111,6 +111,23 @@ wiki; and the size limit covers source pages (split into `source-part` notes tie
 (historical ones frozen). What still grows is the number of review items after a correction to a heavily cited
 page, and search and lint run time.
 
+## 7c. Integration dominates a batch (2026-11-02)
+
+The first batch under these rules (51 papers, Claude Code transcripts weighted by API price ratios) showed that
+bounding page size and reads was not enough. With one paper per reader the mean context per call fell from about 120k
+to 80k tokens, but each paper cost about 0.40M input-equivalent tokens against 0.34M when readers took 2–3 papers,
+because every fresh reader pays its startup again. Integration cost more than all the reading: a user cap of 4
+subagents had been met by merging 9 page groups into 4, so each integrator held 25–40 pages, plus whole-brief grep
+output, in one context (mean 200–258k tokens per call, 13.4M of the run's 25.5M). The orchestrator also kept one
+session through all phases (300k tokens per call). The rules now bound what one context holds, not only what one file
+holds: integrators own at most about 10 pages, a cap on subagents means waves rather than merged groups, each
+integrator gets its own slice of the briefs, command output is bounded, subagents report through files, and the
+orchestrator works one phase per session. Integration cost is roughly the number of target pages times the pages per
+integrator, so this should cut it about 3-fold (an estimate, not yet measured). Bundling short papers per reader was
+adopted and reverted the same day: it saves about 15 % of reading, but an earlier paper in the context could shape
+the next page, which must be written from its own paper alone. One paper per reader is the price of that
+independence.
+
 ## 8. Known limits
 
 - One user library only; group libraries need `zot.py` extended to `/api/groups/<id>`.

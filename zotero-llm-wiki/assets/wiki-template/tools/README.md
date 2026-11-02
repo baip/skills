@@ -112,12 +112,27 @@ Lint checks the line format, outcome, basis length and links.
   open question, and unresolved problems. The main agent runs lint until clean and writes one log entry for the batch.
 - Completion is judged by AGENTS.md §8.2, not by whether pages exist. Report what changed in the synthesis.
 
-- **One paper per reader context** (AGENTS.md §8.2b). Start a fresh reader subagent (or Codex session) for each paper,
-  or for at most about 40 rendered pages, and let it end after its page and brief. Do not resume a finished reader with a
-  new paper, and do not resume readers after a usage-limit stop: start new ones and let them check which pages exist.
+- **One paper per reader context** (AGENTS.md §8.2b). Start a fresh reader subagent (or Codex session) for each paper
+  and let it end after its page and brief. Do not resume a finished reader with a new paper, and do not resume readers
+  after a usage-limit stop: start new ones and let them check which pages exist. Bundling short papers would spread
+  the reader's startup (system prompt, tools, brief) over them (measured 2026-11-02: about 0.40M input-equivalent
+  tokens per paper with one paper each, about 0.34M with 2–3, different papers), but it was rejected the same day
+  because an earlier paper in the context could shape the next page.
   Rendered page images stay in a context and are sent again with every later call, so a reader that reads ten papers
   pays for the first nine again on each call of the tenth. Measured 2026-11-01 in Codex logs: mean input per call in
   wiki sessions rose from about 60k tokens (2026-10-25 to 28) to about 240k (2026-10-30 to 11-01).
+- **Integrator groups of about 10 pages, run in waves** (AGENTS.md §8.2b). Cost grows with the pages one integrator
+  holds, because each page it reads is re-sent on every later call. Measured 2026-11-02 (51-paper batch, 156 target
+  pages): 4 integrators with 25–40 pages each made 437 calls at a mean context of 200–258k tokens (peak 453k) and used
+  13.4M of the run's 25.5M input-equivalent tokens (uncached input + 1.25 × cache writes + 0.1 × cache reads + 5 ×
+  output). Plan groups of at most about 10 pages; with a cap on subagents, start the next group as one finishes rather
+  than merging groups. Write each integrator's slice of the briefs (the claims aimed at its pages) to its own file in
+  the cache folder, so it never greps all briefs. Launch a wave only with quota left for it: 9 integrators started just
+  before a 5-hour limit used 1.6M tokens and edited nothing.
+- **One phase per orchestrator session.** The orchestrator ends its session after reading and after integration:
+  commit the checkpoint, write the next phase's prompt to the batch state file, and stop with that prompt for the user.
+  Subagents write their full reports to `<cache>/reports/` and return one line, which keeps the orchestrator's context
+  small (measured 2026-11-02: one session through all phases reached 300k tokens per call, 2.7M tokens).
 - **Bounded reads.** Give each reader `tools/reader-brief.md` plus its assignment (key, filename, cache folder, batch notes)
   and each integrator `tools/integrator-brief.md` plus its pages, briefs and sources. Readers take link candidates from a
   search for their paper, never a full list of pages; integrators read briefs and the pages they own. Keep batch
