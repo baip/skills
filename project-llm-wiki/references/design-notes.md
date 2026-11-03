@@ -150,6 +150,17 @@ adopted and reverted the same day: it saves about 15 % of reading, but an earlie
 the next page, which must be written from its own paper alone. One paper per reader is the price of that
 independence.
 
+### The orchestrator becomes the cost (2026-11-02)
+
+Once readers and integrators were bounded, the orchestrator was the largest consumer. In two 8-paper batches of a
+Zotero-backed wiki it used 46 % and 64 % of the tokens: 95–163 calls per phase at a mean context of 95–151k tokens,
+against 56–71k for readers and integrators. Most calls were checks on running subagents, each resending the whole
+context, and whole diffs or files it read to review the work. An orchestrator's cost per phase is roughly fixed, so
+it weighs most on small batches. The rules now keep its context small: it reads only file lists, `--stat` summaries
+and one-line reports, a fresh validation subagent runs the checks and the diff review, and it wakes only when a
+subagent finishes. The rules are stated for any agent. The same wiki may be run by different agents, which notify,
+poll or block in different ways, so only the goal is fixed.
+
 ## 4. Known limits
 
 - One raw root per wiki. Files elsewhere must be moved under it, or the schema extended.
