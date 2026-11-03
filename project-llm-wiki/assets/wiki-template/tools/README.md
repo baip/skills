@@ -24,7 +24,7 @@ On Windows, use `py -3 -I tools/<tool> …` (or `python`) wherever this file say
 
 | Command | Use |
 |---|---|
-| `status` | Raw root reachable? Which converters are available (pandoc, poppler, textutil, and for Office files Word/PowerPoint or LibreOffice)? Run at the start of any session that reads documents |
+| `status` | Raw root reachable? Which converters are available (pandoc, poppler, textutil, and for Office files LibreOffice or Word/PowerPoint)? Run at the start of any session that reads documents |
 | `ls PATH [--recursive] [--all]` | Documents under a folder, renditions grouped (same folder and name, other extension), newest date, size, and state: `[ ]` none, `[m]` metadata, `[r]` read, `[x]` integrated. Office lock files (`~$…`) and system files are skipped; `--all` also lists images, data and archives |
 | `info FILE` | Size, dates, hash (the suggested `doc_id`), document properties (Word/PowerPoint title, author, pages or slides, and hidden PowerPoint slides; PDF pages; LaTeX title and whether it is a main file), renditions, the `file://` URL, and the page that already covers it |
 | `text FILE` | Text to the temp directory, one `PATH<TAB>what` line per output: Word via pandoc (tables and equations kept, images extracted), PowerPoint slide text and speaker notes in presentation order with images extracted, Excel cell values per sheet, LaTeX flattened (`\input`/`\include` expanded) with figure files and bibliographies listed, PDF text layer, `.doc`/`.rtf`/`.odt` via textutil on macOS or the PDF conversion elsewhere. View every listed image |
@@ -85,14 +85,16 @@ items. A (page, cause) in the ledger is never queued again.
   and view every page of a batch before the next. Claude Code's `Read` can also open a PDF directly with page ranges;
   either way counts as `rendered`.
 - **Converters** (Word, PowerPoint and Excel files to PDF, then pages), tried in this order:
-  1. **Microsoft Word or PowerPoint**, for their own formats, when installed: on macOS through AppleScript
+  1. **LibreOffice** (`soffice --headless`, with its own profile in the temp directory), whenever it is installed, on
+     any system, and the only converter on Linux and WSL. No app windows or permission prompts. Layout may differ
+     slightly from Office (fonts, line breaks).
+  2. **Microsoft Word or PowerPoint**, for their own formats, when installed: on macOS through AppleScript
      (`osascript`), on Windows through PowerShell COM automation. Layout matches what the user sees. Office works on a
      temp copy, so no `~$` lock file lands in the raw root, closes it without saving, and quits if it was not
      running. The first run may ask the user to allow the terminal or agent to control Word or PowerPoint (macOS
      System Settings → Privacy & Security → Automation).
-  2. **LibreOffice** (`soffice --headless`, with its own profile in the temp directory), on any system, and the
-     only converter on Linux and WSL. Layout may differ slightly from Office (fonts, line breaks).
-  `$PROJECT_WIKI_CONVERTER=libreoffice` puts LibreOffice first (faster, no windows open). If no converter is
+  `$PROJECT_WIKI_CONVERTER=office` puts Office first, for a document whose locators depend on Office's exact
+  layout. If no converter is
   available, `docs.py` says so: install LibreOffice (`brew install --cask libreoffice`, `apt install libreoffice`,
   `winget install TheDocumentFoundation.LibreOffice`), or read the PDF rendition, or read the text and the embedded
   images (`read_mode: source`).
@@ -178,7 +180,8 @@ No network access is needed, except for qmd's first model download.
   writable_roots = ["<git directory, if outside this folder>", "<skill folder, resolved>", "<home>/.cache/project-wiki"]
   ```
 
-  If converting with Word or PowerPoint is refused inside the sandbox, set `PROJECT_WIKI_CONVERTER=libreoffice`.
+  LibreOffice is tried first, so a sandbox that refuses Word or PowerPoint automation needs nothing extra when
+  LibreOffice is installed.
 - **OpenCode, Hermes, OpenClaw and others**: allow `python3 -I tools/*`, `git`, the converters and poppler in their
   permission settings, and give the agent read access to the raw root. The skill is found at
   `$PROJECT_LLM_WIKI_SKILL`, else `~/.claude/skills/project-llm-wiki`; link the agent's own skills folder (for Codex and

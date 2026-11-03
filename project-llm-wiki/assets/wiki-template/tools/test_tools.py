@@ -249,16 +249,19 @@ _xlsx = ooxml("B/budget.xlsx", {
     "xl/worksheets/sheet1.xml": f'<worksheet {S}><sheetData><row><c t="s"><v>0</v></c><c><v>52000</v></c></row></sheetData></worksheet>'})
 check("Excel: cell values per sheet", "## Sheet: Y1\nSalary\t52000" in docs.xlsx_extract(_xlsx))
 
-# ---- converters: Office for its own formats first, then LibreOffice ----------------------------
+# ---- converters: LibreOffice first when installed, then Office for its own formats --------------
 _saved = (docs.office_app, docs.soffice)
 docs.office_app = lambda kind: True
 docs.soffice = lambda: "/x/soffice"
-check("converters: Word, then LibreOffice, for a Word file", docs.converters(".docx") == ["word", "libreoffice"])
-check("converters: PowerPoint, then LibreOffice, for slides", docs.converters(".pptx") == ["powerpoint", "libreoffice"])
+check("converters: LibreOffice, then Word, for a Word file", docs.converters(".docx") == ["libreoffice", "word"])
+check("converters: LibreOffice, then PowerPoint, for slides", docs.converters(".pptx") == ["libreoffice", "powerpoint"])
 check("converters: LibreOffice alone for Excel", docs.converters(".xlsx") == ["libreoffice"])
-os.environ["PROJECT_WIKI_CONVERTER"] = "libreoffice"
-check("converters: PROJECT_WIKI_CONVERTER=libreoffice goes first", docs.converters(".docx") == ["libreoffice", "word"])
+os.environ["PROJECT_WIKI_CONVERTER"] = "office"
+check("converters: PROJECT_WIKI_CONVERTER=office puts Office first", docs.converters(".docx") == ["word", "libreoffice"])
 del os.environ["PROJECT_WIKI_CONVERTER"]
+docs.soffice = lambda: None
+check("converters: Office alone when LibreOffice is absent", docs.converters(".pptx") == ["powerpoint"])
+docs.soffice = lambda: "/x/soffice"
 docs.office_app = lambda kind: False
 docs.soffice = lambda: None
 check("converters: none available -> advice to install, not a crash",
