@@ -377,6 +377,9 @@ def cmd_info(a):
         pdf_props(path) if ext == ".pdf" else tex_props(path) if ext == ".tex" else {}
     for k, v in props.items():
         print(f"{k}: {v}")
+    hidden = pptx_hidden(path)
+    if hidden:
+        print(f"hidden slides: {', '.join(map(str, hidden))} (render shows them unless --skip-hidden)")
     d, stem = os.path.dirname(path), os.path.splitext(os.path.basename(path))[0].lower()
     sib = [f for f in sorted(os.listdir(d)) if not is_junk(f) and os.path.splitext(f)[0].lower() == stem
            and os.path.join(d, f) != path]
@@ -424,22 +427,58 @@ def shape_text(root):
     return paras
 
 
+def pptx_slide_parts(z):
+    """The slide parts of an open .pptx zip in presentation order (file-name order if presentation.xml lacks it)."""
+    pres = zip_xml(z, "ppt/presentation.xml")
+    prels = rels_of(z, "ppt/presentation.xml")
+    order = []
+    if pres is not None:
+        for s in pres.iter("{%s}sldId" % NS["p"]):
+            rid = s.get("{%s}id" % NS["r"])
+            if rid in prels:
+                order.append(prels[rid])
+    if not order:
+        order = sorted((n for n in z.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)),
+                       key=lambda n: int(re.search(r"(\d+)", n.rsplit("/", 1)[1]).group(1)))
+    return order
+
+
+HIDE_EXT = {".pptx", ".pptm", ".potx"}  # zip formats whose slides carry show="0" when hidden
+
+
+def pptx_hidden(path):
+    """Numbers (presentation order, from 1) of the hidden slides of a .pptx, [] for other formats."""
+    if os.path.splitext(path)[1].lower() not in HIDE_EXT:
+        return []
+    try:
+        with zipfile.ZipFile(path) as z:
+            return [i for i, part in enumerate(pptx_slide_parts(z), 1)
+                    if (root := zip_xml(z, part)) is not None and root.get("show") == "0"]
+    except (zipfile.BadZipFile, OSError):
+        return []
+
+
+def unhidden_copy(path, d):
+    """A copy of a .pptx in directory d (same file name) with every slide's hidden flag cleared, so converters
+    render all slides and PDF page N is slide N. The original is only read."""
+    dest = os.path.join(d, os.path.basename(path))
+    with zipfile.ZipFile(path) as z, zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as out:
+        slides = set(pptx_slide_parts(z))
+        for item in z.infolist():
+            data = z.read(item.filename)
+            if item.filename in slides:  # drop show="0" from the root <p:sld> start tag only
+                data = re.sub(rb'<(?!\?)([\w.-]+:)?sld\b[^>]*>',
+                              lambda m: re.sub(rb'\s+show\s*=\s*["\']0["\']', b"", m.group(0)), data, count=1)
+            out.writestr(item, data)
+    return dest
+
+
 def pptx_extract(path, media_dir):
     """Markdown text of a .pptx in presentation order: each slide's text, its embedded images (copied to
     media_dir) and its speaker notes. Returns (text, [image paths])."""
     lines, images = [], []
     with zipfile.ZipFile(path) as z:
-        pres = zip_xml(z, "ppt/presentation.xml")
-        prels = rels_of(z, "ppt/presentation.xml")
-        order = []
-        if pres is not None:
-            for s in pres.iter("{%s}sldId" % NS["p"]):
-                rid = s.get("{%s}id" % NS["r"])
-                if rid in prels:
-                    order.append(prels[rid])
-        if not order:
-            order = sorted((n for n in z.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)),
-                           key=lambda n: int(re.search(r"(\d+)", n.rsplit("/", 1)[1]).group(1)))
+        order = pptx_slide_parts(z)
         for i, part in enumerate(order, 1):
             root = zip_xml(z, part)
             if root is None:
@@ -558,24 +597,27 @@ def graphics_paths(base_dir, refs):
     return out
 
 
-def to_pdf(path, h):
+def to_pdf(path, h, skip_hidden=False):
     """A PDF of an office file in the temp dir (cached by content hash), made by the first converter that works
-    (`converters`). Never opens the original in an editor: Office gets a temp copy."""
+    (`converters`). Never opens the original in an editor: Office gets a temp copy. Hidden slides of a .pptx are
+    rendered (from a copy with the hidden flags cleared, so page N is slide N) unless skip_hidden."""
     ext = os.path.splitext(path)[1].lower()
-    d = out_dir("pdf", h)
+    hidden = pptx_hidden(path)
+    d = out_dir("pdf", h, ("visible" if skip_hidden else "all")) if hidden else out_dir("pdf", h)
     pdf = os.path.join(d, os.path.splitext(os.path.basename(path))[0] + ".pdf")
     if os.path.exists(pdf):
         return pdf
+    src = unhidden_copy(path, out_dir("unhide", h)) if hidden and not skip_hidden else path
     tried = []
     for conv in converters(ext):
         if conv == "libreoffice":
             profile = pathlib.Path(out_dir("lo-profile", h)).as_uri()  # one per document: parallel readers may convert at once
             r = subprocess.run([soffice(), f"-env:UserInstallation={profile}", "--headless", "--convert-to", "pdf",
-                                "--outdir", d, path], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+                                "--outdir", d, src], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
         else:
             work = out_dir("convert", h)
             copy = os.path.join(work, "in" + ext)
-            shutil.copyfile(path, copy)
+            shutil.copyfile(src, copy)
             r = subprocess.run(office_command(conv, copy, pdf), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
             shutil.rmtree(work, ignore_errors=True)
         if r.returncode == 0 and os.path.exists(pdf):
@@ -695,7 +737,7 @@ def cmd_render(a):
     if ext == ".pdf":
         pdf = path
     elif ext in OFFICE:
-        pdf = to_pdf(path, h)
+        pdf = to_pdf(path, h, a.skip_hidden)
     elif ext == ".tex":
         sys.exit("LaTeX is read from its source (`docs.py text`, read_mode: source); render its compiled PDF if one "
                  "exists (`docs.py info` lists PDFs in the folder). The wiki never compiles in the raw root.")
@@ -707,12 +749,17 @@ def cmd_render(a):
         sys.exit(f"pdfinfo could not read {pdf}: {(info.stderr or info.stdout).strip()}")
     n = int(m.group(1))
     first, last = page_range(a.pages, n)
-    out = out_dir("pages", h)
+    hidden = pptx_hidden(path)
+    out = out_dir("pages", h, "visible") if hidden and a.skip_hidden else out_dir("pages", h)
     r = subprocess.run(["pdftoppm", "-r", str(a.dpi), "-f", str(first), "-l", str(last), "-png", pdf,
                         os.path.join(out, "p")], capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode:
         sys.exit(f"pdftoppm failed: {r.stderr.strip()}")
     via = "" if pdf == path else f" (via a PDF conversion: {pdf})"
+    if hidden:
+        nums = ", ".join(map(str, hidden))
+        print(f"hidden slides {nums}: skipped (--skip-hidden), so page numbers are not slide numbers" if a.skip_hidden
+              else f"hidden slides {nums}: rendered (page N is slide N); say so on the page; --skip-hidden omits them")
     print(f"{rel}: pages {first}-{last} of {n} at {a.dpi} dpi{via}; view each file as an image (PAGE<TAB>PATH):")
     for f in sorted(os.listdir(out)):
         num = re.fullmatch(r"p-0*(\d+)\.png", f)
@@ -898,6 +945,7 @@ def main():
     s = sub.add_parser("info"); s.add_argument("file")
     s = sub.add_parser("text"); s.add_argument("file")
     s = sub.add_parser("render"); s.add_argument("file"); s.add_argument("--pages"); s.add_argument("--dpi", type=int, default=150)
+    s.add_argument("--skip-hidden", action="store_true", help="omit hidden PowerPoint slides (default: render them)")
     sub.add_parser("clean")
     s = sub.add_parser("fingerprint"); s.add_argument("files", nargs="+")
     s = sub.add_parser("stamp"); s.add_argument("keys", nargs="+", help="page names, doc_ids, or ALL")
