@@ -141,6 +141,10 @@ tools/README.md, section "Schema details".
   reason in the Reading history.
 - A source page over 40,000 bytes is split into part notes (`type: source-part`, `part_of:`), the same document's
   notes, never a second identity. Citing a part counts as citing the source.
+- A read source page that the user chooses to keep unlinked (no research content, for example) carries
+  `standalone: "<reason>"` and a dated Reading history line recording the decision. Lint then skips its `orphan`
+  and `unintegrated` warnings and nothing else. An empty or yes/no reason, or the field on a page that is not a
+  source page, is an error.
 
 ### 5.2 Project page — `projects/<slug>.md`
 
@@ -231,8 +235,9 @@ other page by search (§8.3). During work, run `wikilint.py --since <start revis
 **States** (derived, never asserted): *none* (no page) · *metadata* (metadata-only) · *read* (full or partial, but no
 project, concept, entity or topic page cites it in its text) · *integrated* (cited in such text).
 
-**Complete** when every item is integrated or metadata with a reason, the project and topic pages reflect the new
-evidence, `index.md` and `log.md` are updated, and strict lint passes. Otherwise the log calls the ingest *incomplete*.
+**Complete** when every item is integrated, metadata with a reason or `standalone:` (§5.1), the project and topic pages
+reflect the new evidence, `index.md` and `log.md` are updated, and strict lint passes. Otherwise the log calls the
+ingest *incomplete*.
 
 **Every document is read on its own terms.** Write its page from the document alone, as if it were the first one
 ingested, and only then integrate it (step 6). Comparison with the wiki belongs in integration and in `[!synthesis]`

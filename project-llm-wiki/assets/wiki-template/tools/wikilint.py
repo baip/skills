@@ -4,7 +4,8 @@ Usage: wikilint.py [--strict] [--since REV]. With --since, warnings are counted 
 pages changed since git REV (errors are always listed), so the output stays short as the wiki grows.
 
 Errors (must be fixed):
-  frontmatter   unparseable frontmatter, missing or mistyped fields, values outside the permitted sets
+  frontmatter   unparseable frontmatter, missing or mistyped fields, values outside the permitted sets, a
+                `standalone:` without a reason or on a page that is not a source page
   identity      duplicate doc_id, a file listed by two source pages, a page name used in two folders or clashing
                 with a root file
   broken link   wikilink to a page that does not exist (log.md and reviewed.md are history and not checked)
@@ -24,11 +25,12 @@ Warnings (judgment calls; `--strict` makes them fail too, which is the ingest co
                 by sub-question, and a source page into part notes (`type: source-part`), because every integration,
                 review or audit reads the whole page (AGENTS.md §11); an analysis kept as a frozen historical
                 record (`frozen: true`) is exempt
-  orphan        page with no inbound link (besides index/log)
+  orphan        page with no inbound link (besides index/log), except a source page with `standalone: <reason>`
   stale ↗ link  ↗ file link to a document that now has a source page (run tools/relink.py)
   catalog       a generated field is out of date: a sources: list or index.md counts/metadata (run tools/catalog.py)
   unintegrated  source read but not cited in the text of any project, concept, entity or topic page; a page whose
-                `version_of:` target is cited counts as integrated (§4 cites the later version of a document)
+                `version_of:` target is cited counts as integrated (§4 cites the later version of a document), and
+                a source page kept unlinked at the user's request (`standalone: <reason>`) is exempt
   claim status  a bullet under a source page's `## Claims and results` without [proposed], [preliminary], [reported]
                 or [published] (AGENTS.md §6.8)
   pending       an open item in pending.md (pages awaiting a synthesis review)
@@ -91,6 +93,14 @@ REUSE = re.compile(r"^> \[!reuse\]([^\n]*)", re.M)
 AUTHOR_REASON = re.compile(r"No credited author: *\S", re.I)
 FLINK = re.compile(r"↗\]\((file://[^)\s]+)\)")
 CLAIM_STATUS = re.compile(r"^\s*[-*+] \[(proposed|preliminary|reported|published)\]")
+NOT_A_REASON = {"", "true", "false", "yes", "no"}  # `standalone:` needs words saying why, not a flag
+
+
+def standalone(f):
+    """True when a source page is kept unlinked at the user's request (`standalone: <reason>`): it is exempt from
+    the orphan and unintegrated warnings only. An empty or flag-like value exempts nothing (and is an error)."""
+    v = f.get("standalone")
+    return f.get("type") == "source" and isinstance(v, str) and v.strip().lower() not in NOT_A_REASON
 
 
 def check_fields(name, f, errs):
@@ -124,6 +134,12 @@ def check_fields(name, f, errs):
     for field in ("date", "submitted", "decision"):
         if field in f and not PARTIAL_DATE.match(str(f[field])):
             errs.append(("frontmatter", f"{name}: {field}={f[field]!r} is not YYYY, YYYY-MM or YYYY-MM-DD (quote it)"))
+    if "standalone" in f:
+        if typ != "source":
+            errs.append(("frontmatter", f"{name}: standalone: applies only to source pages"))
+        elif not standalone(f):
+            errs.append(("frontmatter", f"{name}: standalone: needs a reason (why the user keeps this page unlinked), "
+                                          f"not {f['standalone']!r}"))
     if typ == "source":
         authors = f["authors"] if isinstance(f.get("authors"), list) else []
         if f.get("author_status") == "uncredited" and f.get("authors") != []:
@@ -327,10 +343,10 @@ def main():
                 and os.path.getsize(versions[0]["path"]) > SIZE_LIMIT):
             warns.append(("size", f"{n} is {os.path.getsize(versions[0]['path'])} bytes, over {SIZE_LIMIT}: split it "
                                   "into a parent and child pages (split.py)"))
-        if not inbound[n] and versions[0]["dir"] not in ("topics", "projects"):
+        if not inbound[n] and versions[0]["dir"] not in ("topics", "projects") and not standalone(versions[0]["fields"]):
             warns.append(("orphan", f"{n} has no inbound links (besides index/log)"))
     for key, (name, state) in source_states(pages).items():
-        if state == "read":
+        if state == "read" and not standalone(pages[name][0]["fields"]):
             warns.append(("unintegrated", f"{name} ({key}) is read but no project, concept, entity or topic page cites it"))
 
     items, problems = pending_parse()
