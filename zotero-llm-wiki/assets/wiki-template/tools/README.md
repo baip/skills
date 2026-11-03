@@ -112,9 +112,10 @@ Lint checks the line format, outcome, basis length and links.
   open question, and unresolved problems. The main agent runs lint until clean and writes one log entry for the batch.
 - Completion is judged by AGENTS.md §8.2, not by whether pages exist. Report what changed in the synthesis.
 
-- **One paper per reader context** (AGENTS.md §8.2b). Start a fresh reader subagent (or Codex session) for each paper
-  and let it end after its page and brief. Do not resume a finished reader with a new paper, and do not resume readers
-  after a usage-limit stop: start new ones and let them check which pages exist. Bundling short papers would spread
+- **One paper per reader context** (AGENTS.md §8.2b). Start a fresh reader subagent (or, for an agent without
+  subagents, a fresh session) for each paper and let it end after its page and brief. Do not resume a finished reader
+  with a new paper, and do not resume readers after a usage-limit stop: start new ones and let them check which pages
+  exist. Bundling short papers would spread
   the reader's startup (system prompt, tools, brief) over them (measured 2026-11-02: about 0.40M input-equivalent
   tokens per paper with one paper each, about 0.34M with 2–3, different papers), but it was rejected the same day
   because an earlier paper in the context could shape the next page.
@@ -136,6 +137,17 @@ Lint checks the line format, outcome, basis length and links.
   what to ingest.
   Subagents write their full reports to `<cache>/reports/` and return one line, which keeps the orchestrator's context
   small (measured 2026-11-02: one session through all phases reached 300k tokens per call, 2.7M tokens).
+- **A small orchestrator context** (AGENTS.md §8.2b). These rules hold for any agent; only the mechanics differ.
+  - Read file lists, `git diff --stat` and one-line reports, never whole pages, diffs or check output. A fresh
+    validation subagent (or session) runs the checks, reviews the diff of hand-written pages and returns one line.
+  - Wake only when a subagent finishes. Use the agent's completion notice if it has one. Otherwise wait with the
+    longest timeout its wait command allows, never in short repeated checks: each wake-up sends the orchestrator's
+    whole context again.
+  - Record batch size and subagents at once in the batch state file. An orchestrator's cost per phase is roughly
+    fixed, so larger batches and more subagents at once spread it over more papers.
+  - Measured: in two 8-paper batches of the sibling chatgpt wiki (2026-11-02), the orchestrator used 46 % and 64 %
+    of the tokens: 95–163 calls per phase at a mean context of 95–151k tokens (peak 251k), many of them checks on
+    running subagents and whole diffs or files it read itself, while readers and integrators averaged 56–71k.
 - **Bounded reads.** Give each reader `tools/reader-brief.md` plus its assignment (key, filename, cache folder, batch notes)
   and each integrator `tools/integrator-brief.md` plus its pages, briefs and sources. Readers take link candidates from a
   search for their paper, never a full list of pages; integrators read briefs and the pages they own. Keep batch

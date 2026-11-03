@@ -249,6 +249,13 @@ integrators holding 25–40 pages each used half of a run's tokens):
   session with "Continue ingestion". That phrase is the whole prompt: find the batch state file in the cache folder and
   run its next phase. The state file therefore names the phase, the start revision, the items and the cache paths
   (rule added 2026-11-02). Subagents write their full reports to the cache folder and return one line.
+- The main agent's own context grows with every call too, so it holds only what coordinating needs: file lists,
+  `--stat` summaries and subagents' one-line reports, never whole pages, diffs or check output. A fresh subagent (or
+  session) runs validation and reviews the diff of hand-written pages. The main agent wakes only when a subagent
+  finishes: it relies on a completion notice where the agent gets one, and otherwise waits with the longest timeout
+  available, never with short repeated checks. Batch size and the number of subagents at once go in the batch state
+  file, so any agent that continues the batch uses them (rule added 2026-11-02, after the orchestrator used half to
+  two thirds of two batches' tokens in the sibling chatgpt wiki).
 - Integrators read the briefs and the pages they own, not PDFs or the index.
 
 **Bounded reads** (rules added 2026-11-01 so that the cost of ingesting a paper does not grow with the wiki):
@@ -264,7 +271,8 @@ integrators holding 25–40 pages each used half of a run's tokens):
   wiki pages. The orchestrator records its batch state in a small file there and starts fresh per batch or phase.
   The session that completes the batch deletes that folder after its commit, once anything worth keeping is in the
   wiki or the log; an incomplete batch keeps it until it resumes or the user drops it (rule added 2026-11-02).
-- Review the diff of hand-written pages. Check generated files (`index.md`, `sources:` lists) with `git diff --stat`.
+- Review the diff of hand-written pages (in a batch, the validation subagent does, §8.2b). Check generated files
+  (`index.md`, `sources:` lists) with `git diff --stat`.
 
 ### 8.3 Query
 
