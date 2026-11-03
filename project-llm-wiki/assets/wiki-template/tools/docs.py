@@ -17,7 +17,7 @@ Usage:
                                           # or Windows)
   docs.py ls PATH [--recursive] [--all]   # documents under PATH (renditions grouped by name) with ingestion state
   docs.py info FILE                       # metadata, hash, renditions, suggested doc_id, file URL, existing page
-  docs.py text FILE                       # extracted text (and embedded media) -> temp dir, one path per line
+  docs.py text FILE                       # extracted text (and embedded images, video listed) -> temp dir, one path per line
   docs.py render FILE [--pages 3-7] [--dpi 150]   # pages -> PNG files in a temp dir, to view as images
   docs.py clean                           # delete the temp dir (rendered pages, text, media, converted PDFs)
   docs.py fingerprint FILE [FILE...]      # f1 content hashes, in the order given
@@ -474,11 +474,66 @@ def unhidden_copy(path, d):
     return dest
 
 
+IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".emf", ".wmf"}
+VECTOR_EXT = {".svg", ".emf", ".wmf"}  # listed, but an image viewer may not open them: view the rendered slide too
+MEDIA_EXT = {".mp4", ".m4v", ".mov", ".avi", ".wmv", ".mkv", ".webm", ".mpg", ".mpeg", ".asf", ".flv",
+             ".mp3", ".m4a", ".wav", ".wma", ".aac", ".ogg", ".mid", ".midi"}
+AUDIO_EXT = {".mp3", ".m4a", ".wav", ".wma", ".aac", ".ogg", ".mid", ".midi"}
+
+
+def rels_typed(z, part):
+    """[(rId, type name, target, external)] for an OOXML part, external targets included (type name is the last
+    segment of the relationship Type, "" when absent)."""
+    d, base = os.path.split(part)
+    root = zip_xml(z, f"{d}/_rels/{base}.rels")
+    out = []
+    for r in (root if root is not None else []):
+        target, ext = r.get("Target", ""), r.get("TargetMode") == "External"
+        if not ext:
+            target = target[1:] if target.startswith("/") else os.path.normpath(os.path.join(d, target)).replace(os.sep, "/")
+        out.append((r.get("Id"), r.get("Type", "").rsplit("/", 1)[-1], target, ext))
+    return out
+
+
+def picture_refs(root):
+    """r:embed and r:link ids of every picture in a slide or notes part: <a:blip> and the SVG source of a picture
+    (<asvg:svgBlip>, nested in the blip that points to its PNG fallback), matched by local name."""
+    emb, link = set(), set()
+    for e in root.iter():
+        if e.tag.rsplit("}", 1)[-1] in ("blip", "svgBlip"):
+            if e.get("{%s}embed" % NS["r"]):
+                emb.add(e.get("{%s}embed" % NS["r"]))
+            if e.get("{%s}link" % NS["r"]):
+                link.add(e.get("{%s}link" % NS["r"]))
+    return emb, link
+
+
+def copy_pictures(z, root, rels, media_dir, prefix, lines, images, label):
+    """Copy the pictures a part uses to media_dir; add a Markdown line and an images entry for each."""
+    emb, link = picture_refs(root)
+    for rid, _, target, external in sorted(rels, key=lambda r: r[0] or ""):
+        if rid in link and external:
+            lines.append(f"- [{label} linked, not in the file: {target}]")
+            continue
+        if rid not in emb or external or os.path.splitext(target)[1].lower() not in IMAGE_EXT:
+            continue
+        dest = os.path.join(media_dir, f"{prefix}-{os.path.basename(target)}")
+        try:
+            with z.open(target) as src, open(dest, "wb") as out:
+                shutil.copyfileobj(src, out)
+        except KeyError:
+            continue
+        images.append((dest, label))
+        lines.append(f"- [{label}: {dest}]")
+
+
 def pptx_extract(path, media_dir):
-    """Markdown text of a .pptx in presentation order: each slide's text, its embedded images (copied to
-    media_dir) and its speaker notes. Returns (text, [image paths])."""
-    lines, images = [], []
+    """Markdown text of a .pptx in presentation order: each slide's text, its embedded images (SVG sources
+    included, copied to media_dir), its video and audio (listed, not copied), and its speaker notes with any
+    images on the notes page. Returns (text, [(image path, label)], [(slide, media description)])."""
+    lines, images, media = [], [], []
     with zipfile.ZipFile(path) as z:
+        sizes = {i.filename: i.file_size for i in z.infolist()}
         order = pptx_slide_parts(z)
         for i, part in enumerate(order, 1):
             root = zip_xml(z, part)
@@ -487,28 +542,31 @@ def pptx_extract(path, media_dir):
             hidden = root.get("show") == "0"
             lines.append(f"\n## Slide {i}" + (" (hidden)" if hidden else ""))
             lines += [f"- {t}" for t in shape_text(root)]
-            srels = rels_of(z, part)
-            used = {e.get("{%s}embed" % NS["r"]) for e in root.iter("{%s}blip" % NS["a"])}
-            for rid in sorted(x for x in used if x in srels):
-                target = srels[rid]
-                ext = os.path.splitext(target)[1].lower()
-                if ext not in (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".emf", ".wmf"):
+            srels = rels_typed(z, part)
+            copy_pictures(z, root, srels, media_dir, f"slide{i:03d}", lines, images, "image")
+            seen = set()
+            for _, kind, target, external in srels:
+                ext = os.path.splitext(target.split("?", 1)[0])[1].lower()
+                if target in seen or not (kind in ("video", "audio", "media") or ext in MEDIA_EXT):
                     continue
-                dest = os.path.join(media_dir, f"slide{i:03d}-{os.path.basename(target)}")
-                try:
-                    with z.open(target) as src, open(dest, "wb") as out:
-                        shutil.copyfileobj(src, out)
-                except KeyError:
-                    continue
-                images.append(dest)
-                lines.append(f"- [image: {dest}]")
-            notes = next((t for t in srels.values() if "notesSlide" in t), None)
+                seen.add(target)
+                what = "audio" if kind == "audio" or ext in AUDIO_EXT else "video"
+                if external:
+                    desc = f"{what} linked, not in the file: {target}"
+                else:
+                    mb = sizes.get(target, 0) / 1e6
+                    desc = f"{what} embedded: {os.path.basename(target)} ({mb:.1f} MB, {target} in the file)"
+                media.append((i, desc))
+                lines.append(f"- [{desc}]")
+            notes = next((t for _, k, t, x in srels if not x and ("notesSlide" in t or k == "notesSlide")), None)
             nroot = zip_xml(z, notes) if notes else None
             if nroot is not None:
                 ntext = [t for t in shape_text(nroot) if not re.fullmatch(r"\d+", t)]
                 if ntext:
                     lines.append("- Notes: " + " / ".join(ntext))
-    return "\n".join(lines).strip() + "\n", images
+                copy_pictures(z, nroot, rels_typed(z, notes), media_dir, f"slide{i:03d}-notes", lines, images,
+                              "notes-page image")
+    return "\n".join(lines).strip() + "\n", images, media
 
 
 def xlsx_extract(path):
@@ -672,11 +730,19 @@ def cmd_text(a):
                 print(f"{os.path.join(dp, f)}\tembedded image (view it)")
         return
     if ext in (".pptx", ".potx"):
-        text, images = pptx_extract(path, out_dir("media", h))
+        text, images, media = pptx_extract(path, out_dir("media", h))
         open(out, "w", encoding="utf-8").write(text)
         print(f"{out}\tslide text and speaker notes, in presentation order ({text.count('## Slide')} slides)")
-        for p in images:
-            print(f"{p}\tembedded image (view it)")
+        for p, label in images:
+            what = "embedded image" if label == "image" else label
+            if os.path.splitext(p)[1].lower() in VECTOR_EXT:
+                what += " (vector: if it does not open as an image, view " + (
+                    "the rendered slide)" if label == "image" else "the PNG fallback listed next to it, if any)")
+            else:
+                what += " (view it)"
+            print(f"{p}\t{what}")
+        for n, desc in media:
+            print(f"slide {n}\t{desc} (not viewable as an image: record it, the rendered slide shows its poster frame)")
         return
     if ext == ".xlsx":
         out = os.path.join(d, base + ".tsv.md")
