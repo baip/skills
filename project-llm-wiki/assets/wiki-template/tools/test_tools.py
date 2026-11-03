@@ -223,6 +223,20 @@ check("PowerPoint: speaker notes kept, slide numbers in notes dropped", "- Notes
 check("PowerPoint: embedded images copied out to view", len(_imgs) == 1 and os.path.isfile(_imgs[0]) and _imgs[0].startswith(_media))
 check("PowerPoint: core properties", docs.office_props(_pptx) == {"title": "Talk", "creator": "Bai, P."})
 shutil.rmtree(_media, ignore_errors=True)
+_hid = ooxml("S/hidden.pptx", {
+    "ppt/presentation.xml": f'<p:presentation {P} {R}><p:sldIdLst><p:sldId id="256" r:id="rId2"/><p:sldId id="257" r:id="rId1"/></p:sldIdLst></p:presentation>',
+    "ppt/_rels/presentation.xml.rels": f'<Relationships {RELS}><Relationship Id="rId1" Target="slides/slide1.xml"/><Relationship Id="rId2" Target="slides/slide2.xml"/></Relationships>',
+    "ppt/slides/slide1.xml": slide("Shown"),
+    "ppt/slides/slide2.xml": slide("Hidden first").replace("<p:sld ", '<p:sld show="0" ', 1),
+})
+check("PowerPoint: hidden slides found by presentation order", docs.pptx_hidden(_hid) == [1] and docs.pptx_hidden(_pptx) == [])
+_before = docs.sha8(_hid)
+_unhide_dir = tempfile.mkdtemp(prefix="wiki-unhide-test-")
+_copy = docs.unhidden_copy(_hid, _unhide_dir)
+check("PowerPoint: the render copy clears hidden flags and keeps the text; the original is untouched",
+      docs.pptx_hidden(_copy) == [] and "Hidden first" in docs.pptx_extract(_copy, _unhide_dir)[0]
+      and docs.sha8(_hid) == _before and os.path.basename(_copy) == "hidden.pptx")
+shutil.rmtree(_unhide_dir, ignore_errors=True)
 W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 _docx = ooxml("D/plan.docx", {"word/document.xml": f'<w:document {W}><w:body><w:p><w:r><w:t>Data management</w:t></w:r></w:p>'
                                                     f'<w:p><w:r><w:t>plan </w:t></w:r><w:r><w:t>text</w:t></w:r></w:p></w:body></w:document>'})
@@ -259,6 +273,14 @@ refused(docs.to_pdf, _pptx, "aaaa0002")
 docs.subprocess.run, docs.TMP = _real_run, _real_tmp
 check("LibreOffice: each document converts with its own profile, so parallel conversions do not collide",
       len(_calls) == 2 and _calls[0][1] != _calls[1][1] and "aaaa0001" in _calls[0][1] and "aaaa0002" in _calls[1][1])
+_calls.clear()
+docs.TMP = tempfile.mkdtemp(prefix="wiki-lo-test-")
+docs.subprocess.run = lambda cmd, **k: _calls.append(cmd) or argparse.Namespace(returncode=1, stdout="", stderr="x")
+refused(docs.to_pdf, _hid, "aaaa0003")
+refused(docs.to_pdf, _hid, "aaaa0003", True)
+docs.subprocess.run, docs.TMP = _real_run, _real_tmp
+check("LibreOffice: hidden slides render from an unhidden copy by default; --skip-hidden converts the original",
+      len(_calls) == 2 and os.sep + "unhide" + os.sep in _calls[0][-1] and _calls[1][-1] == _hid)
 docs.office_app, docs.soffice = _saved
 check("Office commands are AppleScript on macOS and PowerShell elsewhere",
       (docs.office_command("word", "a", "b")[0] == "osascript") == (sys.platform == "darwin"))
