@@ -128,6 +128,11 @@ check("explicitly uncredited full source is valid", errors_for(authors=[], autho
 check("uncredited flag cannot coexist with a named author", has(errors_for(author_status="uncredited"), "requires authors: []"))
 check("declared corporate author is valid", errors_for(authors=["National Science Foundation"], corporate_authors=["National Science Foundation"]) == [])
 check("undeclared corporate author rejected", has(errors_for(authors=["National Science Foundation"]), "author entry"))
+check("standalone: a source page with a reason is valid", errors_for(standalone="internal slides, no research content") == [])
+check("standalone: an empty reason is an error", has(errors_for(standalone=""), "standalone: needs a reason"))
+check("standalone: a flag instead of a reason is an error", has(errors_for(standalone="true"), "standalone: needs a reason"))
+check("standalone: only on source pages", has(errors_for(type="concept", sources=["s"], created="2026-10-17",
+                                                         standalone="kept apart"), "applies only to source pages"))
 check("arbitrary year string rejected", has(errors_for(year="unknown"), "year must be"))
 check("undated is a valid year", errors_for(year="undated") == [])
 check("list-valued title rejected", has(errors_for(title=["a", "b"]), "title must be a single string"))
@@ -514,6 +519,39 @@ with tempfile.TemporaryDirectory() as tmp:
         open(t1p, "w", encoding="utf-8").write(_t1 + f"Not yet read: [S4 ↗]({docs.file_url(os.path.join(RAW, 'W/s4.pdf'))}).\n")
         check("lint: a ↗ link to a file that has a page is a stale link", "s4.pdf is now [[s4]]" in lint_strict()[1])
         open(t1p, "w", encoding="utf-8").write(_t1)
+
+        # standalone: a read source kept unlinked at the user's request skips orphan and unintegrated, nothing else
+        write("W/s5.pdf", "s5")
+        s5p = os.path.join(tmp, "sources/s5.md")
+        open(s5p, "w", encoding="utf-8").write(source_page("s5", "0000aaa5", ["W/s5.pdf"], "## Claims and results\n- [reported] x (p. 1).\n"))
+        run(docs.cmd_stamp, keys=["s5"])
+        idx = os.path.join(tmp, "index.md")
+        _idx = open(idx, encoding="utf-8").read()
+        open(idx, "w", encoding="utf-8").write(catalog.fix_index(wikimeta.load_pages(), "# Index\n", "2026-10-18"))
+        code, out = lint_strict()
+        check("standalone: without it, an unlinked read source is an orphan and unintegrated",
+              code == 1 and "s5 has no inbound links" in out and "s5 (0000aaa5) is read but" in out)
+        set_field(s5p, "doc_kind", 'report\nstandalone: "internal slides kept unlinked at the user request"')
+        code, out = lint_strict()
+        check("standalone: an exempted page passes the strict gate", code == 0)
+        if code:
+            print(out)
+        set_field(s5p, "standalone", '""')
+        code, out = lint_strict()
+        check("standalone: an empty reason is a lint error and exempts nothing",
+              re.search(r"ERROR frontmatter +s5: standalone: needs a reason", out) and "s5 has no inbound links" in out
+              and "s5 (0000aaa5) is read but" in out)
+        set_field(s5p, "standalone", '"kept unlinked at the user request"')
+        t5 = open(s5p, encoding="utf-8").read()
+        open(s5p, "w", encoding="utf-8").write(t5.replace("- [reported] x (p. 1).\n", "- [reported] x (p. 1).\n- An untagged claim.\n")
+                                                 .replace('summary: "Summary of s5."\n', ""))
+        code, out = lint_strict()
+        check("standalone: other warnings (claim status, summary) are still raised on an exempted page",
+              code == 1 and "s5: claim without [proposed" in out and "s5 has no summary" in out
+              and "s5 has no inbound links" not in out and "s5 (0000aaa5) is read but" not in out)
+        os.remove(s5p)
+        open(idx, "w", encoding="utf-8").write(_idx)
+        clear_queue()
 
         # concurrent stampers share the queue: no item may be lost
         tools_dir = os.path.dirname(os.path.abspath(__file__))
