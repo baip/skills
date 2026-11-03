@@ -50,10 +50,11 @@ section that matches the question; nothing here is needed for routine work.
 
 ## 2. Formats and converters
 
-- PDF renders directly with poppler. Word, PowerPoint and Excel are converted to PDF first, by Microsoft Office when
-  it is installed (exact layout; macOS by AppleScript, Windows by PowerShell COM) and else by LibreOffice (any system).
-  Office is tried first because layout differences (fonts, line breaks, slide scaling) can move figure and table
-  content across pages, which matters for locators. On macOS with Office installed, conversion of a temp copy ran
+- PDF renders directly with poppler. Word, PowerPoint and Excel are converted to PDF first, by LibreOffice when it
+  is installed (any system) and else by Microsoft Office (exact layout; macOS by AppleScript, Windows by PowerShell
+  COM). Office was tried first until 2026-11-03, because layout differences (fonts, line breaks, slide scaling) can
+  move figure and table content across pages, which matters for locators. The user then asked for LibreOffice by
+  default (headless, no app windows or Automation prompts); `PROJECT_WIKI_CONVERTER=office` restores Office first. On macOS with Office installed, conversion of a temp copy ran
   without dialogs (2026-11-02; about 17 s for Word and 25 s for PowerPoint including app launch). The first run may
   trigger the system's Automation permission prompt.
 - Office always gets a temp copy because opening a document leaves a `~$` lock file next to it, which would land in

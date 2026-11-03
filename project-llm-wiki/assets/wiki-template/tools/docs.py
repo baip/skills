@@ -3,8 +3,8 @@
 
 Policy (AGENTS.md §2.1): the wiki never modifies the raw root. This tool only reads files there. Extracted text,
 embedded media, converted PDFs and rendered pages go to a temp directory outside both the wiki and the raw root.
-Word, PowerPoint and Excel files are rendered through a PDF made by Microsoft Word or PowerPoint (macOS, by
-AppleScript) or Windows (PowerShell), always from a temp copy, else LibreOffice (headless) on any system.
+Word, PowerPoint and Excel files are rendered through a PDF made by LibreOffice (headless) when it is installed,
+else by Microsoft Word or PowerPoint on macOS (AppleScript) or Windows (PowerShell), always from a temp copy.
 The only wiki writes are `stamp`, which records a provenance fingerprint in a source page's frontmatter, and the
 review items that `stamp` and `changed --queue` add to pending.md.
 
@@ -13,8 +13,8 @@ FILE arguments may be absolute, start with ~, or be relative to the raw root; th
 
 Usage:
   docs.py status                          # raw root, and the converters found (pandoc, poppler, textutil, and for
-                                          # rendering Office files: Word/PowerPoint on macOS or Windows, else
-                                          # LibreOffice)
+                                          # rendering Office files: LibreOffice, else Word/PowerPoint on macOS
+                                          # or Windows)
   docs.py ls PATH [--recursive] [--all]   # documents under PATH (renditions grouped by name) with ingestion state
   docs.py info FILE                       # metadata, hash, renditions, suggested doc_id, file URL, existing page
   docs.py text FILE                       # extracted text (and embedded media) -> temp dir, one path per line
@@ -216,17 +216,18 @@ def office_command(kind, src, dst):
 
 
 def converters(ext):
-    """Converters able to make a PDF of an `ext` file, in the order to try: the Microsoft Office app for that format
-    (exact layout), then LibreOffice. $PROJECT_WIKI_CONVERTER = office | libreoffice puts that kind first."""
+    """Converters able to make a PDF of an `ext` file, in the order to try: LibreOffice when installed (headless, no
+    app windows or permission prompts), then the Microsoft Office app for that format. $PROJECT_WIKI_CONVERTER=office
+    puts Office first (its layout matches what the user sees)."""
     out = []
+    if soffice():
+        out.append("libreoffice")
     if ext in WORD_EXT and office_app("word"):
         out.append("word")
     if ext in PPT_EXT and office_app("powerpoint"):
         out.append("powerpoint")
-    if soffice():
-        out.append("libreoffice")
-    if os.environ.get("PROJECT_WIKI_CONVERTER") == "libreoffice":
-        out.sort(key=lambda c: c != "libreoffice")
+    if os.environ.get("PROJECT_WIKI_CONVERTER") == "office":
+        out.sort(key=lambda c: c == "libreoffice")
     return out
 
 

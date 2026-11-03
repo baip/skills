@@ -1,7 +1,7 @@
 ---
 name: project-llm-wiki
 description: Set up and run an LLM-maintained wiki of a researcher's own project documents (proposals, reports, presentations, papers, reviews received) kept in Word, PowerPoint, Excel, LaTeX, PDF and other formats in a local or cloud-synced folder, read-only, so that future proposals and reports can reuse what was proposed, done, reported and learned. Obsidian-style pages for documents, projects, topics, concepts and entities, with content fingerprints that detect edited or moved files, claim status (proposed vs reported vs published), verbatim reuse blocks of the user's own text, a review queue, lint and claim audits. Use whenever someone wants to turn a folder of their grant proposals, progress reports or slides into a knowledge base, a "second brain" for proposal writing, a Karpathy-style LLM wiki or Obsidian vault of their own work, or wants help drafting a proposal or report from past ones kept in such a wiki, or to upgrade the tools of an existing one.
-compatibility: Python 3.9+ (standard library only) on macOS, Linux or Windows; poppler (pdftoppm, pdfinfo) to view pages; pandoc recommended for Word text; to render Word/PowerPoint files, Microsoft Word/PowerPoint (macOS or Windows) or LibreOffice (any system); git and Obsidian optional. Works with Claude Code, Codex, OpenCode and other agents that read AGENTS.md and can view local images.
+compatibility: Python 3.9+ (standard library only) on macOS, Linux or Windows; poppler (pdftoppm, pdfinfo) to view pages; pandoc recommended for Word text; to render Word/PowerPoint files, LibreOffice (any system, preferred) or Microsoft Word/PowerPoint (macOS or Windows); git and Obsidian optional. Works with Claude Code, Codex, OpenCode and other agents that read AGENTS.md and can view local images.
 ---
 
 # Project-document LLM wiki
@@ -30,9 +30,9 @@ Check, and fix with the user, what setup depends on:
 - **Python 3.9+** (`python3`, or `py -3` on Windows).
 - **Viewing pages.** The reading rule is to look at pages as laid out, not only extracted text. `docs.py render`
   turns pages into PNG files with poppler (`pdftoppm`, `pdfinfo`), and the agent views them as images. Word,
-  PowerPoint and Excel files are first converted to PDF by **Microsoft Word or PowerPoint** when installed (macOS by
-  AppleScript, Windows by PowerShell, always on a temp copy), else by **LibreOffice** (any system, the only option on
-  Linux). Suggest installing LibreOffice only if neither Office nor LibreOffice is present. pandoc gives the best Word
+  PowerPoint and Excel files are first converted to PDF by **LibreOffice** when installed (any system, the only option
+  on Linux), else by **Microsoft Word or PowerPoint** (macOS by AppleScript, Windows by PowerShell, always on a temp
+  copy). Suggest installing LibreOffice if it is absent; Office alone still works. pandoc gives the best Word
   text. After setup, `python3 -I tools/docs.py status` in the wiki lists what was found. Without a converter, a Word
   or PowerPoint file can still be read as text plus its embedded images (`read_mode: source`).
 - **This skill is installed**, not run from a temporary copy: at `~/.claude/skills/project-llm-wiki` (a symlink to a

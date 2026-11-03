@@ -204,7 +204,7 @@ Only if it answers a recurring question, supports a comparison across documents,
 - All access goes through `tools/docs.py`, read-only (§2.1). Paths may be given relative to the raw root. If the raw
   root is unreachable (an unmounted cloud drive), stop and tell the user.
 - **Reading a document means viewing it as laid out**: `docs.py render` for a PDF, and for Word, PowerPoint or Excel a
-  PDF made by Microsoft Office (macOS or Windows) or LibreOffice, whichever is available (tools/README.md). When a
+  PDF made by LibreOffice when installed, else by Microsoft Office (macOS or Windows) (tools/README.md). When a
   PDF rendition was submitted, read that one. **LaTeX** is read from its source (`docs.py text` flattens `\input`s),
   viewing each figure, which is `read_mode: source`. Word or PowerPoint text read with `docs.py text` plus every
   embedded image viewed is also `source`; text without the images is `text-index`. Extracted text is for search and
