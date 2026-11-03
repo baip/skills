@@ -282,13 +282,21 @@ tools/README.md.
 - The main agent works one phase per session (reading, integration, synthesis). At each boundary it commits the
   checkpoint, writes the next phase's instructions to the batch state file and stops, telling the user to start a new
   session with "Continue ingestion". That phrase is the whole prompt: find the batch state file in the cache folder and
-  run its next phase. Subagents write their full reports to the cache folder and return one line.
+  run its next phase. The state file therefore names the phase, the start revision, the items and the cache paths.
+  Subagents write their full reports to the cache folder and return one line.
+- The main agent's own context grows with every call too, so it holds only file lists, `--stat` summaries and
+  subagents' one-line reports, never whole pages, diffs or check output. A fresh subagent (or session) runs validation
+  and reviews the diff of hand-written pages. The main agent wakes only when a subagent finishes: on a completion
+  notice where the agent gets one, otherwise after the longest wait available, never in short repeated checks. Batch
+  size and the number of subagents at once go in the batch state file, so any agent that continues the batch uses
+  them (rule added 2026-11-02).
 - Integrators read the briefs and the pages they own, not the documents or the index.
 
 **Bounded reads**: readers read `tools/reader-brief.md` and their document, and skip §8.1; integrators read
 `tools/integrator-brief.md`. Link candidates come from a search (about the top 15). Command output is bounded (`grep
 -l`, `| head`, `tools/search.py`). Batch queues, briefs and state live in a cache folder outside the wiki, deleted by
-the session that completes the batch. Check generated files with `git diff --stat`.
+the session that completes the batch. In a batch, the validation subagent reviews the diff of hand-written pages.
+Check generated files with `git diff --stat`.
 
 ### 8.3 Query, and help with writing
 

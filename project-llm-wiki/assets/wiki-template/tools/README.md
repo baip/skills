@@ -124,6 +124,14 @@ items. A (page, cause) in the ledger is never queued again.
 - **One phase per orchestrator session**: commit the checkpoint, write the next phase's instructions to the batch state
   file (phase, start revision, items, integrator groups, cache paths), and stop, telling the user to start a new
   session with "Continue ingestion". With no batch folder under `~/.cache/project-wiki/`, nothing is pending.
+- **A small orchestrator context** (AGENTS.md §8.2b). These rules hold for any agent, and only the mechanics differ.
+  - Read file lists, `git diff --stat` and one-line reports, never whole pages, diffs or check output. A fresh
+    validation subagent (or session) runs the checks, reviews the diff of hand-written pages and returns one line.
+  - Wake only when a subagent finishes. Use the agent's completion notice if it has one. Otherwise wait with the
+    longest timeout its wait command allows, never in short repeated checks: each wake-up sends the orchestrator's
+    whole context again.
+  - Record batch size and subagents at once in the batch state file. An orchestrator's cost per phase is roughly
+    fixed, so larger batches and more subagents at once spread it over more documents.
 - **Cache folder**: `~/.cache/project-wiki/<wiki>-<batch>/` (on Windows, `%LOCALAPPDATA%\project-wiki\…`), outside
   the wiki and the raw root. Subagents write full reports to `<cache>/reports/` and return one line. Delete the folder
   when the batch is complete and committed.
