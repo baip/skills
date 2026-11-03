@@ -221,12 +221,58 @@ _pptx = ooxml("S/talk.pptx", {
                          'xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Talk</dc:title><dc:creator>Bai, P.</dc:creator></cp:coreProperties>',
 })
 _media = tempfile.mkdtemp(prefix="wiki-media-test-")
-_text, _imgs = docs.pptx_extract(_pptx, _media)
+_text, _imgs, _vids = docs.pptx_extract(_pptx, _media)
 check("PowerPoint: slides follow the presentation order, not file names",
       _text.index("First in order") < _text.index("Second in order") and "## Slide 1" in _text)
 check("PowerPoint: speaker notes kept, slide numbers in notes dropped", "- Notes: Say this" in _text and "Say this / 2" not in _text)
-check("PowerPoint: embedded images copied out to view", len(_imgs) == 1 and os.path.isfile(_imgs[0]) and _imgs[0].startswith(_media))
+check("PowerPoint: embedded images copied out to view", len(_imgs) == 1 and os.path.isfile(_imgs[0][0])
+      and _imgs[0][0].startswith(_media) and _imgs[0][1] == "image" and _vids == [])
 check("PowerPoint: core properties", docs.office_props(_pptx) == {"title": "Talk", "creator": "Bai, P."})
+shutil.rmtree(_media, ignore_errors=True)
+
+# Media the first version missed: an SVG picture (svgBlip nested in its PNG fallback's blip), an image on the notes
+# page, an embedded .mkv video (two relationships to one file) and a linked external video.
+SVG = 'xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main"'
+_rich = ooxml("S/rich.pptx", {
+    "ppt/slides/slide1.xml": (f'<p:sld {A} {P} {R}><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>Rich</a:t></a:r></a:p>'
+                              f'</p:txBody></p:sp><p:pic><p:blipFill><a:blip r:embed="rPng"><a:extLst><a:ext uri="x">'
+                              f'<asvg:svgBlip {SVG} r:embed="rSvg"/></a:ext></a:extLst></a:blip></p:blipFill></p:pic>'
+                              f'<p:pic><p:nvPicPr><p:nvPr><a:videoFile r:link="rVid"/></p:nvPr></p:nvPicPr></p:pic>'
+                              f'</p:spTree></p:cSld></p:sld>'),
+    "ppt/slides/_rels/slide1.xml.rels": (
+        f'<Relationships {RELS}><Relationship Id="rPng" Type="http://x/image" Target="../media/image1.png"/>'
+        f'<Relationship Id="rSvg" Type="http://x/image" Target="../media/image2.svg"/>'
+        f'<Relationship Id="rVid" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="../media/media1.mkv"/>'
+        f'<Relationship Id="rMed" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="../media/media1.mkv"/>'
+        f'<Relationship Id="rExt" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" '
+        f'Target="https://example.org/clip.mp4" TargetMode="External"/>'
+        f'<Relationship Id="rN" Type="http://x/notesSlide" Target="../notesSlides/notesSlide1.xml"/></Relationships>'),
+    "ppt/media/image1.png": b"\x89PNG fallback",
+    "ppt/media/image2.svg": b"<svg/>",
+    "ppt/media/media1.mkv": b"\x1aE\xdf\xa3" + b"0" * 2000,
+    "ppt/media/image3.png": b"\x89PNG notes",
+    "ppt/notesSlides/notesSlide1.xml": (f'<p:notes {A} {P} {R}><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>See figure</a:t>'
+                                        f'</a:r></a:p></p:txBody></p:sp><p:pic><p:blipFill><a:blip r:embed="rNi"/></p:blipFill>'
+                                        f'</p:pic></p:spTree></p:cSld></p:notes>'),
+    "ppt/notesSlides/_rels/notesSlide1.xml.rels": f'<Relationships {RELS}><Relationship Id="rNi" Target="../media/image3.png"/></Relationships>',
+})
+_media = tempfile.mkdtemp(prefix="wiki-media-test-")
+_text, _imgs, _vids = docs.pptx_extract(_rich, _media)
+_names = {os.path.basename(p): label for p, label in _imgs}
+check("PowerPoint: SVG picture copied with its PNG fallback", _names.get("slide001-image2.svg") == "image"
+      and _names.get("slide001-image1.png") == "image" and all(os.path.isfile(p) for p, _ in _imgs))
+check("PowerPoint: notes-page image copied and labeled", _names.get("slide001-notes-image3.png") == "notes-page image"
+      and "- Notes: See figure" in _text and "[notes-page image:" in _text)
+check("PowerPoint: embedded .mkv video listed once, not copied", sum("media1.mkv" in d for _, d in _vids) == 1
+      and any(d.startswith("video embedded: media1.mkv") for _, d in _vids)
+      and not any(p.endswith(".mkv") for p, _ in _imgs) and "[video embedded: media1.mkv" in _text)
+check("PowerPoint: linked external video listed", (1, "video linked, not in the file: https://example.org/clip.mp4") in _vids)
+_buf = io.StringIO()
+with contextlib.redirect_stdout(_buf):
+    docs.cmd_text(argparse.Namespace(file=_rich))
+_out = _buf.getvalue()
+check("docs.py text lists SVG, notes-page image and video", "vector: if it does not open" in _out
+      and "notes-page image (view it)" in _out and "slide 1\tvideo embedded: media1.mkv" in _out)
 shutil.rmtree(_media, ignore_errors=True)
 _hid = ooxml("S/hidden.pptx", {
     "ppt/presentation.xml": f'<p:presentation {P} {R}><p:sldIdLst><p:sldId id="256" r:id="rId2"/><p:sldId id="257" r:id="rId1"/></p:sldIdLst></p:presentation>',

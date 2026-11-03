@@ -26,6 +26,8 @@ any, the cache folder for your brief, and any batch-specific notes.
    (`docs.py render FILE --pages a-b`, then view each image). For Word or PowerPoint without a PDF, `docs.py render`
    converts it; if no converter is available, read `docs.py text FILE` and view every image it lists (`read_mode:
    source`). LaTeX: `docs.py text main.tex` and view each figure it lists. Use extracted text to search or quote.
+   For a slide deck, `docs.py text` also lists each slide's video and audio and the images on notes pages: record
+   the videos on the page (slide, file name) and view the notes-page images, which rendered slides do not show.
    **Long documents** (theses, books, anything over 100 pages): read the front matter and the chapters or sections
    your assignment names, each in full; record the whole chapter→page map and each unread chapter with the reason
    "long document, read in part" (`read_depth: partial`, AGENTS.md §8.2 step 3).
