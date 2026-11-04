@@ -296,8 +296,11 @@ tools/README.md.
 - The main agent works one phase per session (reading, integration, synthesis). At each boundary it commits the
   checkpoint, writes the next phase's instructions to the batch state file and stops, telling the user to start a new
   session with "Continue ingestion". That phrase is the whole prompt: find the batch state file in the cache folder and
-  run its next phase. The state file therefore names the phase, the start revision, the items and the cache paths.
-  Subagents write their full reports to the cache folder and return one line.
+  run its next phase. The state file therefore names the phase, the start revision, the items and the cache paths. In a
+  headless run (the skill's `scripts/continue_ingestion.py`, which starts each session with that phrase) nobody answers
+  questions: decide by the state file and this schema, or end the phase with the question in the final message and
+  nothing left uncommitted (added 2026-11-04). Subagents write their full reports to the cache folder and return one
+  line.
 - The main agent's own context grows with every call too, so it holds only file lists, `--stat` summaries and subagents'
   one-line reports, never whole pages, diffs or check output. Validation runs outside it (next item). The main agent
   wakes only when a subagent finishes: on a completion notice where the agent gets one, otherwise after the longest wait

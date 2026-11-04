@@ -124,6 +124,12 @@ items. A (page, cause) in the ledger is never queued again.
 - **One phase per orchestrator session**: commit the checkpoint, write the next phase's instructions to the batch state
   file (phase, start revision, items, integrator groups, cache paths), and stop, telling the user to start a new
   session with "Continue ingestion". With no batch folder under `~/.cache/project-wiki/`, nothing is pending.
+  To run phases back to back without anyone at the keyboard, run `python3
+  ~/.claude/skills/project-llm-wiki/scripts/continue_ingestion.py <wiki> --agent codex|claude` in a terminal (not from
+  an agent session). It starts a fresh headless session per phase with that prompt and goes on while each phase commits.
+  After a usage limit it waits for the reset (stopping if that is more than 6 hours away) and resumes the same session.
+  It stops on anything else: no commit, uncommitted changes, an error, `--max-phases`, or `--stop`, which ends it after
+  the current phase.
 - **A small orchestrator context** (AGENTS.md §8.2b). These rules hold for any agent, and only the mechanics differ.
   - Read file lists, `git diff --stat` and one-line reports, never whole pages, diffs or check output. Reviewers
     and a checks runner validate the phase (next item) and return one line each.
