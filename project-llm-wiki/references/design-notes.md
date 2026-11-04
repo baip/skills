@@ -161,6 +161,15 @@ and one-line reports, a fresh validation subagent runs the checks and the diff r
 subagent finishes. The rules are stated for any agent. The same wiki may be run by different agents, which notify,
 poll or block in different ways, so only the goal is fixed.
 
+Measured over the next ten 8-paper batches of that wiki (batches 200–209, 2026-11-03 to 2026-11-04), the orchestrator
+used 7–12M tokens per batch (21–28 %) against 24–36M (46–62 %) before, in 112–174 calls per batch against 237–255, at a
+mean context of 51–93k per phase against 97–152k. A batch fell from 52–57M to 32–51M tokens (mean 39M, about 28 % less)
+and, on the one account whose weekly quota could be read, from about 23 to about 17 weekly percentage points. About two
+fifths of the orchestrator's saving went to the validation subagents that took over the checks and diff reviews: 6–13M
+tokens per batch, at a mean context of 108k, more than a reader's 76k. They are the next candidate for bounding. The
+baseline is only two batches and the papers differ, so the total saving is less certain than the orchestrator's, whose
+ranges do not overlap.
+
 ## 4. Known limits
 
 - One raw root per wiki. Files elsewhere must be moved under it, or the schema extended.
