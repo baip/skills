@@ -5,13 +5,16 @@ pages changed since git REV (errors are always listed), so the output stays shor
 
 Errors (must be fixed):
   frontmatter   unparseable frontmatter, missing or mistyped fields, values outside the permitted sets, a
-                `standalone:` without a reason or on a page that is not a source page
+                `standalone:` without a reason or on a page that is not a source page, a `group_work:` that is not a
+                nonempty list of names or sits on a page that is not a source page
   identity      duplicate doc_id, a file listed by two source pages, a page name used in two folders or clashing
                 with a root file
   broken link   wikilink to a page that does not exist (log.md and reviewed.md are history and not checked)
   sources       sources: lists an unknown page, misses a cited source, or lists one never cited
   callout       [!contradiction] without a status (open|scope|superseded|corrected); a [!reuse] block outside a
-                source page, or without "label · locator" in its header
+                source page, or without "label · locator" in its header; on a page with `group_work:`, a [!reuse]
+                header without "(by NAME)" naming a group_work author or "the user"; a [!reuse] block on a page with
+                `my_role: recipient` and no `group_work:` (text by others)
   pending       a pending.md checkbox line that cannot be read, or a completed item left in place
   ledger        a reviewed.md line that cannot be read, has an unknown outcome, or lacks a basis
   provenance    a read source page without doc_fingerprint / doc_checked, or a fingerprint that does not match files:
@@ -79,7 +82,7 @@ REQUIRED = {
     "analysis": ["question", "sources", "created"],
     "source-part": ["part_of", "created", "updated"],
 }
-LISTS = {"authors", "corporate_authors", "files", "sources", "tags", "aliases", "team", "folders"}
+LISTS = {"authors", "corporate_authors", "files", "sources", "tags", "aliases", "team", "folders", "group_work"}
 STRINGS = {"title", "read_file", "doc_fingerprint", "version_of", "part_of", "entity_kind", "doc_kind",
            "read_depth", "read_mode", "author_status", "project", "sponsor", "program", "solicitation", "status",
            "my_role", "award_number", "period", "budget", "question"}
@@ -94,6 +97,20 @@ AUTHOR_REASON = re.compile(r"No credited author: *\S", re.I)
 FLINK = re.compile(r"↗\]\((file://[^)\s]+)\)")
 CLAIM_STATUS = re.compile(r"^\s*[-*+] \[(proposed|preliminary|reported|published)\]")
 NOT_A_REASON = {"", "true", "false", "yes", "no"}  # `standalone:` needs words saying why, not a flag
+REUSE_BY = re.compile(r"\(by ([^)]+)\)")
+
+
+def reuse_author_ok(label, group_work):
+    """On a page of an advisee's work (`group_work:`), a [!reuse] label must name whose text it is: "(by NAME)"
+    where NAME contains the surname of a group_work entry ("Liu, Y." -> "Liu"), or "(by the user)"."""
+    m = REUSE_BY.search(label)
+    if not m:
+        return False
+    who = m.group(1).strip().lower()
+    if who == "the user":
+        return True
+    surnames = [str(g).split(",")[0].strip().lower() for g in group_work if str(g).strip()]
+    return any(sn and sn in who for sn in surnames)
 
 
 def standalone(f):
@@ -140,6 +157,13 @@ def check_fields(name, f, errs):
         elif not standalone(f):
             errs.append(("frontmatter", f"{name}: standalone: needs a reason (why the user keeps this page unlinked), "
                                           f"not {f['standalone']!r}"))
+    if "group_work" in f:
+        gw = f["group_work"]
+        if typ not in ("source", "source-part"):
+            errs.append(("frontmatter", f"{name}: group_work: applies only to source pages"))
+        elif not isinstance(gw, list) or not gw or not all(isinstance(g, str) and g.strip() for g in gw):
+            errs.append(("frontmatter", f"{name}: group_work: needs a nonempty list of the advisees whose work this is, "
+                                          f"e.g. [\"Liu, Y.\"], not {gw!r}"))
     if typ == "source":
         authors = f["authors"] if isinstance(f.get("authors"), list) else []
         if f.get("author_status") == "uncredited" and f.get("authors") != []:
@@ -308,12 +332,22 @@ def main():
         vo = f.get("version_of")
         if vo and (vo not in pages or pages[vo][0]["dir"] != "sources" or vo == name):
             errs.append(("consistency", f"{name}: version_of={vo!r} is not another source page"))
+        owner = f
+        if f.get("type") == "source-part" and po in pages:
+            owner = pages[po][0]["fields"]
+        gw = owner.get("group_work") if isinstance(owner.get("group_work"), list) else None
         for m in REUSE.finditer(body):
             line = body[:m.start()].count("\n") + 1
             if versions[0]["dir"] != "sources":
                 errs.append(("callout", f"{name} (body line {line}): a [!reuse] block belongs in a source page; link to it from here"))
             elif " · " not in m.group(1) or not m.group(1).split(" · ", 1)[1].strip():
                 errs.append(("callout", f"{name} (body line {line}): [!reuse] header needs '<label> · <locator>'"))
+            elif gw and not reuse_author_ok(m.group(1).split(" · ", 1)[0], gw):
+                errs.append(("callout", f"{name} (body line {line}): on a group_work page a [!reuse] label needs "
+                                          f"'(by NAME)' naming a group_work author or '(by the user)'"))
+            elif not gw and owner.get("my_role") == "recipient":
+                errs.append(("callout", f"{name} (body line {line}): [!reuse] on a my_role: recipient page holds text "
+                                          f"by others; set group_work: if an advisee wrote it, else paraphrase"))
         if f.get("type") == "source":
             claims = re.search(r"(?ms)^## Claims and results\s*\n(.*?)(?=^## |\Z)", body)
             for ln in (claims.group(1).splitlines() if claims else []):

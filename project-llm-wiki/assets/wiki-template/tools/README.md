@@ -258,6 +258,7 @@ read_depth: full*            # full | partial | metadata-only
 read_mode: rendered*         # rendered | source | text-index | mixed | none
 version_of: <final page>     # a draft's page names the final version's page
 standalone: "<reason>"      # optional: why the user keeps this read page unlinked (exempts orphan, unintegrated)
+group_work: ["Liu, Y."]      # optional: the user's advisees who wrote it; their text may go in [!reuse] blocks
 ingested: 2026-01-01*
 updated: 2026-01-01*
 tags: [topic-tag]
@@ -278,6 +279,11 @@ A reuse block:
 > [!reuse] Computing facilities (HPC cluster paragraph) · FacilitiesAndEquipment.pdf p. 1, ¶2
 > <the user's text, verbatim, up to about 300 words>
 ```
+
+On a page with `group_work:` (a document by the user's students or postdocs), a block may hold an advisee's text, and
+every block's label names its author: `> [!reuse] UniZeo acquisition paragraph (by Y. Liu) · slide 29`, or `(by the
+user)` for the user's own text. Lint errors on a missing or unmatched `(by NAME)` there (NAME must contain the surname
+of a group_work entry), and on any block on a `my_role: recipient` page without `group_work:`.
 
 A source page over 40,000 bytes is split into **part notes** `sources/<slug>--<part>.md` (`type: source-part`,
 `part_of: <slug>`, `summary`, `created`, `updated`). For a metadata-only record with no verifiable author, use
