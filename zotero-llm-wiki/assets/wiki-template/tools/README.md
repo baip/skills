@@ -141,6 +141,8 @@ Lint checks the line format, outcome, basis length and links.
   After a usage limit it waits for the reset (stopping if that is more than 6 hours away) and resumes the same session.
   It stops on anything else: no commit, uncommitted changes, an error, `--max-phases`, or `--stop`, which ends it after
   the current phase.
+  Add `--after-phase "qmd embed"` where qmd is set up: it runs after each committed phase, outside the agent's sandbox,
+  which blocks the GPU that embedding needs.
   Subagents write their full reports to `<cache>/reports/` and return one line, which keeps the orchestrator's context
   small (measured 2026-11-02: one session through all phases reached 300k tokens per call, 2.7M tokens).
 - **A small orchestrator context** (AGENTS.md §8.2b). These rules hold for any agent; only the mechanics differ.

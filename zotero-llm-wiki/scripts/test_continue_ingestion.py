@@ -112,6 +112,20 @@ class Loop(unittest.TestCase):
         self.assertEqual(commits, 1)
         self.assertIn("uncommitted changes", log)
 
+    def test_after_phase(self):
+        with tempfile.TemporaryDirectory() as d:
+            marker = Path(d, "hook")
+            commits, log = self.run_plan(["commit", "commit", "idle"], "--after-phase", f"echo x >> {marker}",
+                                         "--after-phase", "false")
+            self.assertEqual(marker.read_text().count("x"), 2)
+        self.assertEqual(commits, 2)
+        self.assertIn("failed with 1, continuing", log)
+
+    def test_after_phase_dirty_stops(self):
+        commits, log = self.run_plan(["commit", "commit"], "--after-phase", "echo x > stray.md")
+        self.assertEqual(commits, 1)
+        self.assertIn("--after-phase command left uncommitted changes", log)
+
     def test_max_phases(self):
         commits, log = self.run_plan(["commit"] * 5, "--max-phases", "3")
         self.assertEqual(commits, 3)

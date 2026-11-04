@@ -130,6 +130,8 @@ items. A (page, cause) in the ledger is never queued again.
   After a usage limit it waits for the reset (stopping if that is more than 6 hours away) and resumes the same session.
   It stops on anything else: no commit, uncommitted changes, an error, `--max-phases`, or `--stop`, which ends it after
   the current phase.
+  Add `--after-phase "qmd embed"` where qmd is set up: it runs after each committed phase, outside the agent's sandbox,
+  which blocks the GPU that embedding needs.
 - **A small orchestrator context** (AGENTS.md §8.2b). These rules hold for any agent, and only the mechanics differ.
   - Read file lists, `git diff --stat` and one-line reports, never whole pages, diffs or check output. Reviewers
     and a checks runner validate the phase (next item) and return one line each.
