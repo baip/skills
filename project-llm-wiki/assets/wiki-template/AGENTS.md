@@ -37,8 +37,10 @@ The **user** chooses which documents enter the wiki, directs emphasis, asks ques
    material, ask before reading it.
 3. **No copies of raw content, except marked reuse blocks.** No files, figures, full text or extracted text in the
    wiki. Extracted text goes only to the temp directory. The user's **own** writing may be quoted verbatim only in a
-   `> [!reuse] <label> · <locator>` block on the source page it comes from (§6.10). Text by others (co-authors' sections,
-   reviewers, solicitations, letters) is paraphrased, with quotations of at most 2 sentences and a locator.
+   `> [!reuse] <label> · <locator>` block on the source page it comes from (§6.10). So may the writing of the user's
+   current and former advisees (the user's students and postdocs), on a source page marked `group_work:`, with the
+   author named in the label (§5.1, §6.10). Text by others (collaborators and co-authors outside the group, reviewers,
+   solicitations, letters) is paraphrased, with quotations of at most 2 sentences and a locator.
 4. **Every source page points back to its files** by `files:` (paths relative to the raw root) and `file://` links.
 5. **Every non-trivial claim is attributed, keeps its scope and states its status** (§6.8): what was *proposed* is
    never presented as *done*. Synthesis must name its premises.
@@ -145,6 +147,9 @@ tools/README.md, section "Schema details".
   `standalone: "<reason>"` and a dated Reading history line recording the decision. Lint then skips its `orphan`
   and `unintegrated` warnings and nothing else. An empty or yes/no reason, or the field on a page that is not a
   source page, is an error.
+- A document written by the user's advisees (a group update, thesis, manuscript draft or report by the user's students
+  or postdocs) carries `group_work: ["Surname, I.", …]`, naming them. Its text is reusable like the user's own (§2.3,
+  §6.10). Lint checks the field (a nonempty list, source pages only) and the attribution of its reuse blocks.
 
 ### 5.2 Project page — `projects/<slug>.md`
 
@@ -196,12 +201,15 @@ Only if it answers a recurring question, supports a comparison across documents,
    (different systems, conditions, dates, definitions or metrics; both hold, and the callout states the scopes);
    `superseded` (a later document settles it; keep a one-line pointer); `corrected` (the wiki was wrong; fix it and log
    a `fix`). Revisit `open` callouts when new documents arrive.
-10. **Reuse blocks.** `> [!reuse] <label> · <locator>` followed by `>` lines holding the user's own text verbatim,
-    on the source page it comes from: one reusable unit (a facilities paragraph, a broader-impacts activity, a
-    mentoring plan element, a preliminary-results paragraph), up to about 300 words. Longer material stays in the
-    file, with a pointer. A block never mixes in text by others, and its label says what it is for. Figures and tables
-    are not copied: point to them (file, page or slide, caption). Projects and topics link to the block
-    (`[[source#Reusable material]]`). When a source changes, its blocks are re-checked against the file with the page.
+10. **Reuse blocks.** `> [!reuse] <label> · <locator>` followed by `>` lines holding the user's own text verbatim, or
+    an advisee's on a `group_work:` page, where the label names whose text it is, `(by Y. Liu)` or `(by the user)`. A
+    block sits on the source page it comes from and holds one reusable unit (a facilities paragraph, a broader-impacts
+    activity, a mentoring plan element, a preliminary-results paragraph), up to about 300 words. Longer material stays
+    in the file, with a pointer. A block never mixes in text by others (nor one advisee's text with another's), and
+    its label says what it is for. A `my_role: recipient` page without `group_work:` holds no blocks (lint error).
+    Figures and tables are not copied: point to them (file, page or slide, caption). Projects and topics link to the
+    block (`[[source#Reusable material]]`). When a source changes, its blocks are re-checked against the file with the
+    page.
 
 ## 7. Document access
 
