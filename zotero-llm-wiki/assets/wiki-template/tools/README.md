@@ -135,6 +135,12 @@ Lint checks the line format, outcome, basis length and links.
   integrator groups, cache paths), and stop, telling the user to start a new session with "Continue ingestion". The
   user never writes a handoff prompt. With no batch folder under `~/.cache/zotero-wiki/`, nothing is pending: ask
   what to ingest.
+  To run phases back to back without anyone at the keyboard, run `python3
+  ~/.claude/skills/zotero-llm-wiki/scripts/continue_ingestion.py <wiki> --agent codex|claude` in a terminal (not from an
+  agent session). It starts a fresh headless session per phase with that prompt and goes on while each phase commits.
+  After a usage limit it waits for the reset (stopping if that is more than 6 hours away) and resumes the same session.
+  It stops on anything else: no commit, uncommitted changes, an error, `--max-phases`, or `--stop`, which ends it after
+  the current phase.
   Subagents write their full reports to `<cache>/reports/` and return one line, which keeps the orchestrator's context
   small (measured 2026-11-02: one session through all phases reached 300k tokens per call, 2.7M tokens).
 - **A small orchestrator context** (AGENTS.md §8.2b). These rules hold for any agent; only the mechanics differ.
