@@ -66,7 +66,7 @@ else: reading, summarizing, cross-referencing, filing, tracking disagreements an
 ├── topics/       # synthesis hubs, usually mirroring a Zotero collection
 ├── analyses/     # filed answers, comparisons, audits; assets/ holds charts the agent made
 └── tools/        # zot.py, review.py, catalog.py, wikilint.py, relink.py, search.py, split.py, wikimeta.py, test_tools.py, README.md,
-                  # reader-brief.md, integrator-brief.md
+                  # reader-brief.md, integrator-brief.md, validator-brief.md
 ```
 
 - No other top-level folders without a schema change. Flat folders; page names unique across folders.
@@ -249,18 +249,24 @@ integrators holding 25–40 pages each used half of a run's tokens):
   session with "Continue ingestion". That phrase is the whole prompt: find the batch state file in the cache folder and
   run its next phase. The state file therefore names the phase, the start revision, the items and the cache paths
   (rule added 2026-11-02). Subagents write their full reports to the cache folder and return one line.
-- The main agent's own context grows with every call too, so it holds only what coordinating needs: file lists,
-  `--stat` summaries and subagents' one-line reports, never whole pages, diffs or check output. A fresh subagent (or
-  session) runs validation and reviews the diff of hand-written pages. The main agent wakes only when a subagent
-  finishes: it relies on a completion notice where the agent gets one, and otherwise waits with the longest timeout
-  available, never with short repeated checks. Batch size and the number of subagents at once go in the batch state
-  file, so any agent that continues the batch uses them (rule added 2026-11-02, after the orchestrator used half to
-  two thirds of two batches' tokens in the sibling chatgpt wiki).
+- The main agent's own context grows with every call too, so it holds only what coordinating needs: file lists, `--stat`
+  summaries and subagents' one-line reports, never whole pages, diffs or check output. Validation runs outside it (next
+  item). The main agent wakes only when a subagent finishes: it relies on a completion notice where the agent gets one,
+  and otherwise waits with the longest timeout available, never with short repeated checks. Batch size and the number of
+  subagents at once go in the batch state file, so any agent that continues the batch uses them (rule added 2026-11-02,
+  after the orchestrator used half to two thirds of two batches' tokens in the sibling chatgpt wiki).
+- Validation is bounded like integration (rule added 2026-11-04, after validation subagents in the sibling chatgpt wiki
+  used 6–13M tokens per batch, as much as the orchestrator, mostly at contexts over 120k: each held a whole batch's
+  pages and then ran the checks on top). Reviewers start fresh from `tools/validator-brief.md`, never from a copy of the
+  orchestrator's context. Each reviews at most about 3 papers' new pages (reading) or one integrator group's pages
+  (integration), writes its findings to the cache folder and returns one line. Checks run in a context that holds no
+  page content: their output goes to files and only summary lines are read. A failure goes to a fresh subagent with only
+  the failing items. Every agent waits on a long command with the longest timeout available.
 - Integrators read the briefs and the pages they own, not PDFs or the index.
 
 **Bounded reads** (rules added 2026-11-01 so that the cost of ingesting a paper does not grow with the wiki):
 - Readers read `tools/reader-brief.md` and their paper, and skip the session protocol (§8.1). Integrators read
-  `tools/integrator-brief.md`.
+  `tools/integrator-brief.md`, and validators `tools/validator-brief.md`.
 - A reader's link candidates come from a search for its paper (about the top 15), never a full list of pages.
 - Read an existing source page head first (TL;DR, key contributions, section map), then only the sections or part
   notes needed, unless auditing it.
@@ -271,7 +277,7 @@ integrators holding 25–40 pages each used half of a run's tokens):
   wiki pages. The orchestrator records its batch state in a small file there and starts fresh per batch or phase.
   The session that completes the batch deletes that folder after its commit, once anything worth keeping is in the
   wiki or the log; an incomplete batch keeps it until it resumes or the user drops it (rule added 2026-11-02).
-- Review the diff of hand-written pages (in a batch, the validation subagent does, §8.2b). Check generated files
+- Review the diff of hand-written pages (in a batch, the reviewers do, §8.2b). Check generated files
   (`index.md`, `sources:` lists) with `git diff --stat`.
 
 ### 8.3 Query

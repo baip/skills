@@ -80,7 +80,8 @@ The **user** chooses which documents enter the wiki, directs emphasis, asks ques
 ├── topics/       # research themes that run across projects
 ├── analyses/     # filed answers, comparisons, writing-support notes, audits; assets/ holds charts the agent made
 └── tools/        # docs.py, review.py, catalog.py, wikilint.py, relink.py, search.py, split.py, wikimeta.py,
-                  # test_tools.py, README.md, reader-brief.md, integrator-brief.md, config.json (the raw root)
+                  # test_tools.py, README.md, reader-brief.md, integrator-brief.md, validator-brief.md,
+                  # config.json (the raw root)
 ```
 
 - No other top-level folders without a schema change. Flat folders, page names unique across folders.
@@ -297,19 +298,25 @@ tools/README.md.
   session with "Continue ingestion". That phrase is the whole prompt: find the batch state file in the cache folder and
   run its next phase. The state file therefore names the phase, the start revision, the items and the cache paths.
   Subagents write their full reports to the cache folder and return one line.
-- The main agent's own context grows with every call too, so it holds only file lists, `--stat` summaries and
-  subagents' one-line reports, never whole pages, diffs or check output. A fresh subagent (or session) runs validation
-  and reviews the diff of hand-written pages. The main agent wakes only when a subagent finishes: on a completion
-  notice where the agent gets one, otherwise after the longest wait available, never in short repeated checks. Batch
-  size and the number of subagents at once go in the batch state file, so any agent that continues the batch uses
-  them (rule added 2026-11-02).
+- The main agent's own context grows with every call too, so it holds only file lists, `--stat` summaries and subagents'
+  one-line reports, never whole pages, diffs or check output. Validation runs outside it (next item). The main agent
+  wakes only when a subagent finishes: on a completion notice where the agent gets one, otherwise after the longest wait
+  available, never in short repeated checks. Batch size and the number of subagents at once go in the batch state file,
+  so any agent that continues the batch uses them (rule added 2026-11-02).
+- Validation is bounded like integration (rule added 2026-11-04, after validation subagents in the sibling chatgpt wiki
+  used 6–13M tokens per batch, as much as the orchestrator, mostly at contexts over 120k: each held a whole batch's
+  pages and then ran the checks on top). Reviewers start fresh from `tools/validator-brief.md`, never from a copy of the
+  orchestrator's context. Each reviews at most about 3 documents' new pages (reading) or one integrator group's pages
+  (integration), writes its findings to the cache folder and returns one line. Checks run in a context that holds no
+  page content: their output goes to files and only summary lines are read. A failure goes to a fresh subagent with only
+  the failing items. Every agent waits on a long command with the longest timeout available.
 - Integrators read the briefs and the pages they own, not the documents or the index.
 
 **Bounded reads**: readers read `tools/reader-brief.md` and their document, and skip §8.1; integrators read
-`tools/integrator-brief.md`. Link candidates come from a search (about the top 15). Command output is bounded (`grep
--l`, `| head`, `tools/search.py`). Batch queues, briefs and state live in a cache folder outside the wiki, deleted by
-the session that completes the batch. In a batch, the validation subagent reviews the diff of hand-written pages.
-Check generated files with `git diff --stat`.
+`tools/integrator-brief.md`, and validators `tools/validator-brief.md`. Link candidates come from a search (about the
+top 15). Command output is bounded (`grep -l`, `| head`, `tools/search.py`). Batch queues, briefs and state live in a
+cache folder outside the wiki, deleted by the session that completes the batch. In a batch, the reviewers review the
+diff of hand-written pages. Check generated files with `git diff --stat`.
 
 ### 8.3 Query, and help with writing
 

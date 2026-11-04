@@ -125,13 +125,25 @@ items. A (page, cause) in the ledger is never queued again.
   file (phase, start revision, items, integrator groups, cache paths), and stop, telling the user to start a new
   session with "Continue ingestion". With no batch folder under `~/.cache/project-wiki/`, nothing is pending.
 - **A small orchestrator context** (AGENTS.md §8.2b). These rules hold for any agent, and only the mechanics differ.
-  - Read file lists, `git diff --stat` and one-line reports, never whole pages, diffs or check output. A fresh
-    validation subagent (or session) runs the checks, reviews the diff of hand-written pages and returns one line.
+  - Read file lists, `git diff --stat` and one-line reports, never whole pages, diffs or check output. Reviewers
+    and a checks runner validate the phase (next item) and return one line each.
   - Wake only when a subagent finishes. Use the agent's completion notice if it has one. Otherwise wait with the
     longest timeout its wait command allows, never in short repeated checks: each wake-up sends the orchestrator's
     whole context again.
   - Record batch size and subagents at once in the batch state file. An orchestrator's cost per phase is roughly
     fixed, so larger batches and more subagents at once spread it over more documents.
+- **Bounded validation** (AGENTS.md §8.2b, rule added 2026-11-04). Give each validator `tools/validator-brief.md` plus
+  its role, files, start revision and cache folder, in a fresh context (in Codex, a new agent rather than a fork of the
+  orchestrator).
+  - Reviewers: about 3 documents each in the reading phase (their source pages and reader reports), one integrator group
+    each in integration (`git diff <start> -- <its pages>` and the source-page sections its claims cite). They fix clear
+    errors, report judgment calls and run no checks.
+  - Checks runner: the orchestrator itself or a small fresh subagent. It writes each check's output to `<cache>/checks/`
+    and reads only the last lines. A failure goes to a fresh subagent with only the failing items.
+  - Measured before the change (chatgpt wiki, batches 199–210, 31 validators): 0.4–7.6M tokens each, 3.6M on average at
+    a mean context of 108k. Each read 400–600 kB of notes, records, reports or diffs, then ran the build, checks, tests
+    and search-index refresh on top, so half or more of its calls ran above 120k. Seven started as forks of the
+    orchestrator at 63–82k. Split reviews of 13–17 calls cost 0.6–0.9M.
 - **Cache folder**: `~/.cache/project-wiki/<wiki>-<batch>/` (on Windows, `%LOCALAPPDATA%\project-wiki\…`), outside
   the wiki and the raw root. Subagents write full reports to `<cache>/reports/` and return one line. Delete the folder
   when the batch is complete and committed.
