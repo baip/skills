@@ -148,6 +148,11 @@ Lint checks the line format, outcome, basis length and links.
   - Measured: in two 8-paper batches of the sibling chatgpt wiki (2026-11-02), the orchestrator used 46 % and 64 %
     of the tokens: 95–163 calls per phase at a mean context of 95–151k tokens (peak 251k), many of them checks on
     running subagents and whole diffs or files it read itself, while readers and integrators averaged 56–71k.
+  - After the change, in the next ten 8-paper batches of that wiki (batches 200–209, 2026-11-03 to 2026-11-04), a batch
+    used 32–51M tokens (mean 39M) against 52–57M before, and the orchestrator 7–12M (21–28 %) against 24–36M, in 112–174
+    calls per batch against 237–255. The validation subagents that took over the checks and diff reviews cost about as
+    much as the orchestrator (6–13M per batch, at a mean context of 108k against 76k for readers), so they are the next
+    place to look.
 - **Bounded reads.** Give each reader `tools/reader-brief.md` plus its assignment (key, filename, cache folder, batch notes)
   and each integrator `tools/integrator-brief.md` plus its pages, briefs and sources. Readers take link candidates from a
   search for their paper, never a full list of pages; integrators read briefs and the pages they own. Keep batch
