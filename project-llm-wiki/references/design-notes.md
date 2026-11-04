@@ -170,6 +170,18 @@ tokens per batch, at a mean context of 108k, more than a reader's 76k. They are 
 baseline is only two batches and the papers differ, so the total saving is less certain than the orchestrator's, whose
 ranges do not overlap.
 
+### Validation becomes the cost (2026-11-04)
+
+With the orchestrator bounded, the validation subagents that took over its checks and diff reviews cost as much as it
+did: 6–13M tokens per batch in ten batches of the Zotero-backed chatgpt wiki. Each held a whole batch's notes, records
+and reports, or every integrator's diff, then ran the build, checks, tests and search-index refresh on top of that load,
+so most of its calls ran above 120k tokens, and seven started as forks of the orchestrator's context. Validation is now
+split like integration: reviewers of about 3 papers or documents or one integrator group each, in fresh contexts from a
+short brief, and checks in a context that holds no page content. The review standard is unchanged: every new or changed
+hand-written page is still reviewed in full, against its reader report or the source page it cites. A reviewer no longer
+sees other groups' diffs, but each still checks claims against the source pages, where a conflict between groups shows
+up as a mismatch. Expected saving, not yet measured: about half of validation, some 5M tokens per batch.
+
 ## 4. Known limits
 
 - One raw root per wiki. Files elsewhere must be moved under it, or the schema extended.
