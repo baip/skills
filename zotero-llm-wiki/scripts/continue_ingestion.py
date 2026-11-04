@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run "Continue ingestion" sessions back to back, one batch phase per session, without a person at the keyboard.
 
-  python3 continue_ingestion.py WIKI --agent codex|claude [--max-phases N] [--max-wait-hours H]
+  python3 continue_ingestion.py WIKI --agent codex|claude [--max-phases N] [--max-wait-hours H] [--after-phase CMD]
   python3 continue_ingestion.py WIKI --stop        # end the loop after the current phase
 
 Each run starts a fresh headless session (`codex exec`, `claude -p`) with the prompt "Continue ingestion" in WIKI. The
@@ -12,6 +12,10 @@ A run without a new commit is classified:
     its final message), then resume the same session with the same prompt. If the reset is more than --max-wait-hours
     away (a weekly limit), stop. At most 2 waits in a row without a commit.
   - anything else (nothing pending, the agent asked a question, a check failed, an error): stop and notify.
+
+--after-phase CMD (repeatable) runs a shell command in WIKI after each committed phase, outside the agent's sandbox,
+for work the sandbox blocks, such as `qmd embed`, which needs the GPU. A failing command is logged and the loop goes on.
+A command that leaves uncommitted changes stops it.
 
 The loop also stops when a phase leaves uncommitted changes (the schema asks the user before committing someone else's
 work), when the agent exits with an error, after --max-phases commits, or when `--stop` was run. A lock file in the
@@ -194,6 +198,8 @@ def main(argv=None):
     ap.add_argument("--prompt", default=PROMPT)
     ap.add_argument("--reset-margin", type=int, default=120, help="seconds to wait past a reset")
     ap.add_argument("--log-dir", type=Path)
+    ap.add_argument("--after-phase", action="append", default=[], metavar="CMD",
+                    help="shell command to run in the wiki after each committed phase (repeatable)")
     ap.add_argument("--stop", action="store_true", help="ask a running loop to stop after its current phase")
     a = ap.parse_args(argv)
     wiki = a.wiki.expanduser().resolve()
@@ -249,6 +255,14 @@ def main(argv=None):
             if after != before and not dirty:
                 phases, waits = phases + 1, 0
                 log(f"phase committed: {git(wiki, 'log', '-1', '--format=%h %s')}")
+                for hook in a.after_phase:
+                    with open(log_dir / "loop.log", "a") as fh:
+                        rc = subprocess.run(hook, shell=True, cwd=wiki, stdin=subprocess.DEVNULL, stdout=fh,
+                                            stderr=subprocess.STDOUT).returncode
+                    log(f"after-phase {hook!r}: {'ok' if rc == 0 else f'failed with {rc}, continuing'}")
+                if git(wiki, "status", "--porcelain"):
+                    reason = "an --after-phase command left uncommitted changes"
+                    break
                 continue
             if limited:
                 waits += 1
