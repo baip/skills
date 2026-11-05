@@ -53,9 +53,15 @@ class Outputs(unittest.TestCase):
                         "primary": {"used_percent": 100, "resets_at": 1793800000}, "secondary": {"used_percent": 60}}}}]
             (day / "rollout-x.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
             self.assertEqual(ci.codex_limit(0, Path(d)), (True, 1793800000))
-            rows[1]["payload"]["rate_limits"]["primary"]["used_percent"] = 70
+            tie = dict(rows[1]); tie["payload"] = {"type": "token_count", "rate_limits": {
+                "primary": {"used_percent": 97, "resets_at": 1793800000}, "secondary": {"used_percent": 60}}}
+            (day / "rollout-y.jsonl").write_text(json.dumps(tie))     # same second, lower percentage
+            self.assertEqual(ci.codex_limit(0, Path(d)), (True, 1793800000))
+            (day / "rollout-y.jsonl").unlink()
+            rows[1]["payload"]["rate_limits"]["primary"]["used_percent"] = 92
             (day / "rollout-x.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
             self.assertEqual(ci.codex_limit(0, Path(d)), (False, None))
+            self.assertEqual(ci.codex_limit(0, Path(d), threshold=90), (True, 1793800000))
 
 
 FAKE = r'''#!/bin/sh

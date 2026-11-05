@@ -18,7 +18,8 @@ A run without a new commit is classified:
 for work the sandbox blocks, such as `qmd embed`, which needs the GPU. A failing command is logged and the loop goes on.
 A command that leaves uncommitted changes stops it.
 
-Exhausted credits (no reset time) also stop it. When a run stops with work uncommitted, the stop message names the
+"Out of credits" is waited on like a usage limit when Codex's readings show a full window (a team plan without extra
+credits reports a full 5-hour window that way), and stops the loop otherwise. When a run stops with work uncommitted, the stop message names the
 session: fix the cause (switch account, add credits), then rerun with --resume SESSION, which continues that session even
 though the wiki has its uncommitted work. Codex's `codex resume` picker lists only interactive sessions, but
 `codex resume SESSION` also opens one the loop started.
@@ -93,8 +94,12 @@ def parse_reset_text(text, now):
 
 
 def codex_limit(since, sessions=Path.home() / ".codex/sessions", threshold=99.0):
-    """(exhausted, reset epoch) from the newest rate-limit reading in Codex logs written since `since` (epoch)."""
-    newest = None
+    """(exhausted, reset epoch) from the Codex rate-limit readings written since `since` (epoch).
+
+    Subagents log readings in the same second with different percentages, so each window's peak over the last 10
+    minutes of readings counts, not the single newest line.
+    """
+    readings = []
     for day in sorted(sessions.glob("*/*/*")):
         try:
             if day.stat().st_mtime < since - 86400:
@@ -111,15 +116,19 @@ def codex_limit(since, sessions=Path.home() / ".codex/sessions", threshold=99.0)
                     try:
                         d = json.loads(line)
                         r = d["payload"]["rate_limits"]
-                    except (ValueError, KeyError, TypeError):
+                        ts = dt.datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")).timestamp()
+                    except (ValueError, KeyError, TypeError, AttributeError):
                         continue
-                    if r and (newest is None or d.get("timestamp", "") > newest[0]):
-                        newest = (d.get("timestamp", ""), r)
-    if newest is None:
+                    if r:
+                        readings.append((ts, r))
+    if not readings:
         return False, None
-    resets = [w.get("resets_at") for w in (newest[1].get("primary"), newest[1].get("secondary"))
-              if w and (w.get("used_percent") or 0) >= threshold]
-    resets = [r for r in resets if r]
+    newest = max(ts for ts, _ in readings)
+    resets = []
+    for name in ("primary", "secondary"):
+        windows = [r.get(name) for ts, r in readings if ts >= newest - 600 and r.get(name)]
+        if windows and max(w.get("used_percent") or 0 for w in windows) >= threshold:
+            resets += [w["resets_at"] for w in windows if w.get("resets_at")][-1:]
     return bool(resets), (max(resets) if resets else None)
 
 
@@ -270,13 +279,15 @@ def main(argv=None):
             after, dirty = git(wiki, "rev-parse", "HEAD"), git(wiki, "status", "--porcelain")
 
             limited, reset = False, None
-            if after == before and NO_CREDITS.search(f"{error} {final}"):
-                reason = f"out of credits: {error or final}"[:200]
-                break
             if after == before:
-                if a.agent == "codex":
-                    limited, reset = codex_limit(start)
                 text = f"{error} {final}"
+                no_credits = bool(NO_CREDITS.search(text))
+                if a.agent == "codex":
+                    # a team plan with no extra credits reports a full 5-hour window as "out of credits"
+                    limited, reset = codex_limit(start, threshold=90 if no_credits else 99)
+                if no_credits and not limited:
+                    reason = f"out of credits, with no usage window full: {error or final}"[:200]
+                    break
                 if not limited and LIMIT_WORDS.search(text):
                     limited = True
                 if limited and reset is None:
