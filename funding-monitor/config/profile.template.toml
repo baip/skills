@@ -598,12 +598,12 @@ tags = ["chemistry", "foundation", "texas only"]
 [[channel]]
 id = "program-acs-prf"
 name = "ACS Petroleum Research Fund"
-covers = "ACS PRF Doctoral New Investigator and New Directions grants. The ACS site blocks scripts, so check it in your own browser"
+covers = "ACS PRF Doctoral New Investigator and New Directions grants, two cycles a year (due October 15 and March 15). The ACS site blocks scripts, so check it in your own browser"
 means = "manual"
 check_in_browser = true
 url = "https://www.acs.org/funding/grants/petroleum-research-fund.html"
 agency = "American Chemical Society"
-months = [12, 1, 2, 3]
+months = [1, 2, 3, 8, 9, 10]
 frequency = "monthly"
 enabled = false
 tags = ["chemistry", "materials", "energy", "society"]
