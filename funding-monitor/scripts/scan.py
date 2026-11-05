@@ -84,10 +84,12 @@ MEANS_LABEL = {
     "rss": "RSS feed",
     "web": "Web page check (link scraping)",
     "sitemap": "Sitemap check (new or updated pages)",
+    "page": "Program page watch (reports changes)",
     "browser": "Web page check (headless browser rendering)",
     "email": "Email (newsletter or list)",
     "alert": "Email alert from a saved search at the provider",
     "manual": "Manual check (no automation possible)",
+    "browser-check": "Check in your own browser (the site blocks scripts)",
 }
 
 
@@ -172,6 +174,30 @@ def load_dotenv() -> None:
 _NET = {"any_success": False, "down_hosts": set()}
 
 
+# Some sites put a bot-protection service in front of their pages. scan.py identifies itself
+# honestly and does not try to get past these. It recognises the challenge pages, so they are
+# reported as blocked (and sent to the user's own browser, see check_in_browser) instead of
+# being parsed as content. Incapsula answers 200 with a challenge, so status alone is not enough.
+_BLOCK_MARKERS = [
+    ("Cloudflare challenge", re.compile(rb"<title>Just a moment\.\.\.</title>|Attention Required! \| Cloudflare|/cdn-cgi/challenge-platform", re.I)),
+    ("Imperva Incapsula challenge", re.compile(rb"_Incapsula_Resource|Incapsula incident ID", re.I)),
+    ("Akamai access denial", re.compile(rb"<title>Access Denied</title>[\s\S]{0,800}(errors\.edgesuite\.net|Reference&#32;&#35;)", re.I)),
+]
+
+
+class BlockedError(urllib.error.URLError):
+    """The site answered with a bot-protection page instead of the content."""
+
+
+def _blocked_by(body: bytes) -> str:
+    if len(body) > 150_000:  # challenge pages are small; real pages may mention these words
+        return ""
+    for name, rx in _BLOCK_MARKERS:
+        if rx.search(body):
+            return name
+    return ""
+
+
 def _request(url: str, data: dict | None = None, headers: dict | None = None) -> bytes:
     hdrs = {"User-Agent": UA}
     body = None
@@ -191,9 +217,21 @@ def _request(url: str, data: dict | None = None, headers: dict | None = None) ->
             with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
                 out = r.read()
             _NET["any_success"] = True
+            who = _blocked_by(out)
+            if who:
+                raise BlockedError(f"blocked by bot protection ({who}). Check it in your own browser")
             return out
+        except BlockedError:
+            raise
         except urllib.error.HTTPError as e:
             _NET["any_success"] = True  # the server answered, so the network works
+            if e.code in (403, 429, 503):
+                try:
+                    who = _blocked_by(e.read())
+                except Exception:  # noqa: BLE001
+                    who = ""
+                if who:
+                    raise BlockedError(f"HTTP {e.code}, blocked by bot protection ({who}). Check it in your own browser") from e
             if e.code in (400, 401, 403, 404, 422, 429):
                 raise
             last = e
@@ -379,7 +417,19 @@ def _fix_xml(raw: bytes) -> bytes:
     return re.sub(rb"&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)", b"&amp;", raw)
 
 
+# Foundation and society news feeds mix calls with award news, staff news and stories. A channel
+# with item_pattern = "funding-calls" keeps only items whose title or summary reads like a call
+# or a new program. Any other item_pattern value is used as the regular expression itself.
+FUNDING_CALL_RX = (r"\b(apply|applications?|calls? for|requests? for (proposals|applications|information)|RFPs?"
+                   r"|funding (opportunit\w*|program\w*)|new (funding )?(program|initiative|award)s?"
+                   r"|launch(es|ed|ing)?|open call|now accepting|nominations?|letters? of intent|LOIs?"
+                   r"|deadline|accepting)\b")
+
+
 def h_rss(ch: dict, prof: dict, ctx: dict) -> list[dict]:
+    keep_rx = None
+    if ch.get("item_pattern"):
+        keep_rx = re.compile(FUNDING_CALL_RX if ch["item_pattern"] == "funding-calls" else ch["item_pattern"], re.I)
     try:
         raw = _request(ch["url"])
     except Exception as e:  # noqa: BLE001
@@ -396,9 +446,10 @@ def h_rss(ch: dict, prof: dict, ctx: dict) -> list[dict]:
             return []
     atom = "{http://www.w3.org/2005/Atom}"
     items = root.findall("./channel/item") or root.findall(f"{atom}entry")
-    chan_date = root.findtext("./channel/pubDate") or root.findtext(f"{atom}updated") or ""
+    chan_date = (root.findtext("./channel/pubDate") or root.findtext("./channel/lastBuildDate")
+                 or root.findtext(f"{atom}updated") or "")
     cutoff = dt.date.today() - dt.timedelta(days=ctx["since_days"])
-    out = []
+    out, skipped = [], 0
     for it in items:
         title = (it.findtext("title") or it.findtext(f"{atom}title") or "").strip()
         link = (it.findtext("link") or "").strip()
@@ -410,6 +461,9 @@ def h_rss(ch: dict, prof: dict, ctx: dict) -> list[dict]:
         pd = _parse_date(pub)
         if pd and pd < cutoff:
             continue
+        if keep_rx and not keep_rx.search(f"{title} {desc}"):
+            skipped += 1
+            continue
         num = re.search(r"\b((?:NSF|PD)\s?\d{2}-\d{3,4}|(?:RFA|PAR|PA|NOT|PAS)-[A-Z]{2}-\d{2}-\d{3})\b", f"{title} {desc}")
         dls = re.findall(r"((?:Full Proposal|Letter of Intent|Preliminary Proposal|Application Due|Deadline)[^:]{0,40}):\s*([A-Z][a-z]+ \d{1,2}, \d{4})", desc)
         out.append(_rec(source=ch["id"], channel=ch["id"], uid=f"rss:{link or title}", id=link,
@@ -417,7 +471,8 @@ def h_rss(ch: dict, prof: dict, ctx: dict) -> list[dict]:
                         agency_code=ch.get("agency_code", ""), status="posted", doc_type=ch.get("doc_type", "feed item"),
                         posted=pub.strip(), close="; ".join(f"{k}: {v}" for k, v in dls), url=link,
                         text=desc[:1500], evidence="feed", feed_date=chan_date.strip()))
-    ctx["log"].append(f"{ch['id']}: {len(out)} items (feed updated: {chan_date.strip() or 'not stated'})")
+    kept = f", {skipped} in the window did not match item_pattern" if keep_rx else ""
+    ctx["log"].append(f"{ch['id']}: {len(out)} items{kept} (feed updated: {chan_date.strip() or 'not stated'})")
     return out
 
 
@@ -511,7 +566,13 @@ def _deadline_text(s: str) -> str:
     if m:
         return m.group(0).strip()
     m = re.search(r"(?:Deadline|Due date|Closing date|Proposals? due|accepted until|due no later than)s?:?\s*((?:[A-Z][a-z]{2,8}\.? \d{1,2}, \d{4})|\d{1,2}/\d{1,2}/\d{4}|Rolling)", s, re.I)
-    return f"Deadline: {m.group(1)}" if m else ""
+    if m:
+        return f"Deadline: {m.group(1)}"
+    # Program calendars print the date first: "NOVEMBER 9, 2026 (11 p.m. AZ time) LOI Due".
+    found = re.findall(r"((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.? \d{1,2},? \d{4}(?:\s*\([^)]{1,40}\))?)"
+                       r"\s+((?:LOI|Letters? of Intent|Pre-?proposals?|Preliminary Proposals?|Full Proposals?|Final Applications?"
+                       r"|Applications?|Proposals?|Nominations?|White Papers?)\s+Due)\b", s, re.I)
+    return "; ".join(f"{label}: {date}" for date, label in found[:4])
 
 
 def h_web(ch: dict, prof: dict, ctx: dict) -> list[dict]:
@@ -591,7 +652,11 @@ def h_sitemap(ch: dict, prof: dict, ctx: dict) -> list[dict]:
             continue
         if "<sitemapindex" in raw:
             sp = re.compile(ch.get("sitemap_pattern", "."), re.I)
-            todo += [x for x in re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", raw) if sp.search(x)]
+            kids = [x for x in re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", raw) if sp.search(x)]
+            if ch.get("newest_sitemaps"):
+                # Date-named children (sitemap-202610.xml) sort by name, newest last.
+                kids = sorted(kids)[-int(ch["newest_sitemaps"]):]
+            todo += kids
             continue
         for block in re.findall(r"<url>(.*?)</url>", raw, re.S):
             loc = re.search(r"<loc>\s*([^<\s]+)\s*</loc>", block)
@@ -622,9 +687,74 @@ def h_sitemap(ch: dict, prof: dict, ctx: dict) -> list[dict]:
                         agency=ch.get("agency", ""), agency_code=ch.get("agency_code", ""),
                         doc_type="page added or updated", posted=mod[:10], close=_deadline_text(body),
                         url=loc, text=(desc + " " + body)[:1500], evidence="page"))
-        time.sleep(0.5)
+        time.sleep(float(ch.get("page_delay", 0.5)))
     ctx["log"].append(f"{ch['id']}: {len(entries)} matching sitemap URLs, {len(recent)} modified in window, {len(out)} fetched")
     return out
+
+
+_MONTH_DATE = r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}"
+_DUE_WORDS = re.compile(r"due|deadline|close[sd]?|ends?\b|submi|nominat|applica|letter of intent|\bLOI\b|proposal", re.I)
+
+
+def _upcoming_deadlines(text: str, limit: int = 4) -> list[str]:
+    """Dates that have not passed and sit near deadline words, with a little context."""
+    out = []
+    for m in re.finditer(_MONTH_DATE, text, re.I):
+        d = _parse_date(re.sub(r"(\d)(st|nd|rd|th)", r"\1", m.group(0)))
+        if not d or d < dt.date.today():
+            continue
+        ctx_txt = text[max(0, m.start() - 90): m.end() + 60]
+        if _DUE_WORDS.search(ctx_txt):
+            out.append(re.sub(r"\s+", " ", ctx_txt).strip())
+        if len(out) >= limit:
+            break
+    return out
+
+
+def h_page(ch: dict, prof: dict, ctx: dict) -> list[dict]:
+    """Watch one program page that has no feed or listing. With --state, report it the first time
+    and whenever its text changes, quoting the lines that are new. Without state, report it only
+    when it shows a deadline that has not passed, since there is no way to tell what changed."""
+    url = ch["url"]
+    if not _allowed(url, ch, prof, ctx):
+        return []
+    try:
+        page = _request(url).decode("utf-8", "replace")
+    except Exception as e:  # noqa: BLE001
+        ctx["log"].append(f"{ch['id']}: fetch failed: {e}")
+        return []
+    t = re.search(r"<title>(.*?)</title>", page, re.S | re.I)
+    title = _clean(t.group(1)) if t else ch.get("name", url)
+    suf = ch.get("title_suffix", "")
+    if suf and title.endswith(suf):
+        title = title[: -len(suf)].strip()
+    main = re.sub(r"(?is)<(script|style|nav|header|footer|noscript|svg|form)\b.*?</\1>", " ", page)
+    main = re.sub(r"(?i)<(br|/p|/div|/li|/h\d|/tr)\b[^>]*>", "\n", main)
+    lines = [ln for ln in (_clean(x) for x in main.split("\n")) if len(ln) > 3]
+    text = "\n".join(lines)
+    fp = hashlib.sha256(text.encode()).hexdigest()[:16]
+    line_hashes = sorted({hashlib.sha256(ln.encode()).hexdigest()[:10] for ln in lines})
+    upcoming = _upcoming_deadlines(" ".join(lines))
+    close = _deadline_text(" ".join(lines)) or ("; ".join(upcoming[:2]))
+    prev = ctx.get("state", {}).get("pages", {}).get(ch["id"]) if ctx.get("stateful") else None
+    ctx.setdefault("pages", {})[ch["id"]] = {"fp": fp, "lines": line_hashes, "seen": dt.date.today().isoformat()}
+    if ctx.get("stateful"):
+        if prev and prev.get("fp") == fp:
+            ctx["log"].append(f"{ch['id']}: page unchanged since {prev.get('seen', 'the last run')}")
+            return []
+        old = set(prev.get("lines", [])) if prev else set()
+        added = [ln for ln in lines if hashlib.sha256(ln.encode()).hexdigest()[:10] not in old]
+        status = "page changed" if prev else "page now watched"
+        note = (" New or changed text: " + " | ".join(added[:12])) if prev else ""
+    else:
+        if not upcoming:
+            ctx["log"].append(f"{ch['id']}: no upcoming deadline on the page (without --state, changes cannot be detected)")
+            return []
+        status, note = "page shows an upcoming deadline", ""
+    ctx["log"].append(f"{ch['id']}: {status}")
+    return [_rec(source=ch["id"], channel=ch["id"], uid=f"page:{url}:{fp}", id=url, title=title,
+                 agency=ch.get("agency", ""), agency_code=ch.get("agency_code", ""), doc_type=status,
+                 posted="", close=close, url=url, text=(note + " " + text)[:1500].strip(), evidence="page")]
 
 
 def playwright_available() -> bool:
@@ -737,7 +867,7 @@ def h_browser(ch: dict, prof: dict, ctx: dict) -> list[dict]:
 
 
 HANDLERS = {"grants_gov": h_grants_gov, "simpler": h_simpler, "sam": h_sam, "rss": h_rss, "web": h_web,
-            "sitemap": h_sitemap, "browser": h_browser}
+            "sitemap": h_sitemap, "browser": h_browser, "page": h_page}
 
 
 # ------------------------------------------------------------------ scoring
@@ -798,6 +928,9 @@ def channel_status(ch: dict) -> str:
         return f"needs {env}"
     if ch.get("means") in ("email", "alert") and not ch.get("senders"):
         return "sender not recorded (subscribe, then record sender)"
+    if ch.get("months"):
+        names = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
+        return "reminder in " + ", ".join(names[m - 1] for m in ch["months"] if 1 <= m <= 12)
     return "ready"
 
 
@@ -810,10 +943,12 @@ def cmd_plan(prof: dict, args) -> int:
     print(f"Email labels swept: {', '.join(labels) if labels else 'none recorded'}.\n")
     print("| Channel | Covers | Means | Checked | Status |")
     print("|---|---|---|---|---|")
-    order = {"api": 0, "rss": 1, "sitemap": 2, "web": 3, "browser": 4, "email": 5, "alert": 6, "manual": 7}
+    order = {"api": 0, "rss": 1, "sitemap": 2, "web": 3, "page": 3, "browser": 4, "email": 5, "alert": 6, "manual": 7}
     rows = sorted(prof["channel"], key=lambda c: (not c.get("enabled", True), order.get(c.get("means", ""), 9)))
     for ch in rows:
         means = MEANS_LABEL.get(ch.get("means", ""), ch.get("means", ""))
+        if ch.get("check_in_browser"):
+            means = MEANS_LABEL["browser-check"]
         if ch.get("means") in ("email", "alert") and ch.get("senders"):
             means += f" from {', '.join(ch['senders'])}"
         print(f"| {ch.get('name', ch['id'])} | {ch.get('covers', '')} | {means} | {ch.get('frequency', 'each scan')} | {channel_status(ch)} |")
@@ -875,8 +1010,10 @@ def cmd_check(prof: dict, args) -> int:
         n0 = len(ctx["log"])
         items = h(test, prof, ctx)
         msgs = "; ".join(ctx["log"][n0:])
-        print(f"- {ch['id']}: {'OK' if items else 'CHECK'} ({len(items)} items) {msgs}")
-        failed += channel_failed(items, ctx["log"][n0:])
+        bad = channel_failed(items, ctx["log"][n0:])
+        label = "OK" if items else ("FAILED" if bad else "REACHABLE, nothing new in the last 30 days")
+        print(f"- {ch['id']}: {label} ({len(items)} items) {msgs}")
+        failed += bad
     if failed and not _NET["any_success"]:
         print(f"\nWARNING: {NETWORK_HINT}")
         return 2
@@ -924,11 +1061,18 @@ def render(items: list[dict], ctx: dict, prof: dict, args, manual: list[dict]) -
             lines.append(f"- {r['url']}")
             lines.append("")
         lines.append("")
+    if ctx.get("blocked_channels"):
+        lines += ["## Blocked by bot protection: check these in your own browser", ""]
+        for ch in ctx["blocked_channels"]:
+            lines.append(f"- {ch.get('name', ch['id'])}: {ch.get('url', '')}")
+        lines.append("")
     if manual:
         lines += ["## Channels for the email sweep or manual check", ""]
         for ch in manual:
             s = f" from {', '.join(ch['senders'])}" if ch.get("senders") else ""
-            lines.append(f"- {ch.get('name', ch['id'])}: {MEANS_LABEL.get(ch['means'], ch['means'])}{s}")
+            where = f" {ch['url']}" if ch.get("url") and ch.get("means") == "manual" else ""
+            how = " (open it in your own browser)" if ch.get("check_in_browser") else ""
+            lines.append(f"- {ch.get('name', ch['id'])}: {MEANS_LABEL.get(ch['means'], ch['means'])}{s}{where}{how}")
         lines.append("")
     lines += ["## Run log", ""] + [f"- {m}" for m in ctx["log"]]
     return "\n".join(lines) + "\n"
@@ -999,14 +1143,19 @@ def channel_failed(items: list, new_log: list[str]) -> bool:
 def cmd_scan(prof: dict, args) -> int:
     ctx = {"since_days": args.since_days, "log": [], "profile": str(args.profile_path)}
     state = load_state(args.state)
+    ctx["state"], ctx["stateful"] = state, bool(args.state)
     items, manual = [], []
-    failed = []
+    failed, blocked = [], []
     for ch in prof["channel"]:
         if not ch.get("enabled", True):
             continue
         h = HANDLERS.get(ch.get("handler", ""))
         if not h:
-            manual.append(ch)
+            months = ch.get("months")
+            if months and dt.date.today().month not in months:
+                ctx["log"].append(f"{ch['id']}: reminder not shown this month (months {months})")
+            else:
+                manual.append(ch)
             continue
         if args.state and not due(ch, state):
             ctx["log"].append(f"{ch['id']}: not due (frequency {ch.get('frequency')})")
@@ -1024,6 +1173,8 @@ def cmd_scan(prof: dict, args) -> int:
         got = h(ch, prof, ctx)
         ctx["since_days"] = args.since_days
         items += got
+        if any("blocked by bot protection" in m for m in ctx["log"][n0:]):
+            blocked.append(ch)
         if channel_failed(got, ctx["log"][n0:]):
             failed.append(ch["id"])  # not marked as run, so it is retried next time
         else:
@@ -1055,6 +1206,9 @@ def cmd_scan(prof: dict, args) -> int:
         now = dt.datetime.now().isoformat(timespec="seconds")
         for r in items:
             state["seen"].setdefault(r["uid"], now)
+        for cid, snap in ctx.get("pages", {}).items():
+            if cid not in failed:
+                state.setdefault("pages", {})[cid] = snap
         for cid, fp in ctx.get("page_fingerprints", {}).items():
             old = state.setdefault("page_fingerprints", {}).get(cid)
             if old and old != fp:
@@ -1063,6 +1217,7 @@ def cmd_scan(prof: dict, args) -> int:
 
     network_down = bool(failed) and not items and not _NET["any_success"]
     ctx["failed_channels"] = failed
+    ctx["blocked_channels"] = blocked
     ctx["network_down"] = network_down
     if failed:
         ctx["log"].append(f"failed channels (retried next run): {', '.join(failed)}")
@@ -1087,6 +1242,10 @@ def cmd_scan(prof: dict, args) -> int:
                   "for example ./state.json (see references/agents.md).", file=sys.stderr)
     counts = {b: sum(r["bucket"] == b for r in items) for b in ("strong", "possible", "low", "filtered")}
     print(json.dumps({"out_dir": str(args.out_dir),
+                      "blocked_channels": [c["id"] for c in blocked],
+                      "manual_reminders": [{"id": c["id"], "url": c.get("url", ""),
+                                            "check_in_browser": bool(c.get("check_in_browser"))}
+                                           for c in manual if c.get("means") == "manual"],
                       "files": [f"funding-scan-{stamp}.md", f"funding-scan-{stamp}.json"],
                       "counts": counts, "failed_channels": failed, "network_down": network_down,
                       "state_saved": state_saved, "log": ctx["log"]}, indent=1))

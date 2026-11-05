@@ -61,7 +61,7 @@ A Congressional Research Service brief reports that DOE reorganized EERE functio
 | GrantForward | saved searches, sponsor alerts, pre-solicitation alerts | institutional license or trial |
 | Candid RFP Bulletin | weekly newsletter | public **S** |
 
-Many prestigious foundation programs (for example Keck, Beckman, Dreyfus, Research Corporation, Packard) run through institutional nomination, so the binding date is internal.
+Many prestigious foundation programs (for example Keck, Beckman, Dreyfus, Research Corporation, Packard) run through institutional nomination, so the binding date is internal. Open foundation calls are another matter: `references/foundations.md` explains how to watch the foundations themselves (filtered news feeds, program-page sitemaps, newsletters) and lists checked routes.
 
 ## 6. Signals that precede solicitations
 

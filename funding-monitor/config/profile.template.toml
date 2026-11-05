@@ -413,6 +413,378 @@ frequency = "weekly"
 enabled = false
 tags = ["energy", "materials", "manufacturing"]
 
+# ----- Private foundations: pick the ones that fund the user's field (references/foundations.md) -----
+# Foundation news feeds mix calls with award and staff news, so item_pattern = "funding-calls"
+# keeps only items that read like a call or a new program.
+
+[[channel]]
+id = "foundation-rcsa-feed"
+name = "Research Corporation for Science Advancement (RCSA) news feed"
+covers = "New RCSA programs and calls (Cottrell awards, Scialog, Team Science Accelerator), filtered to call-like posts"
+means = "rss"
+handler = "rss"
+url = "https://rescorp.org/feed/"
+item_pattern = "funding-calls"
+agency = "Research Corporation for Science Advancement"
+frequency = "weekly"
+min_bucket = "possible"
+enabled = false
+tags = ["physical sciences", "chemistry", "materials", "foundation"]
+
+[[channel]]
+id = "foundation-rcsa-pages"
+name = "RCSA program pages (sitemap)"
+covers = "RCSA program pages added or updated, which is where calls, eligibility and deadlines are posted"
+means = "sitemap"
+handler = "sitemap"
+url = "https://rescorp.org/sitemap.xml"
+sitemap_pattern = '/sitemap-\d+\.xml$'
+loc_pattern = '^https://rescorp\.org/(?!20\d\d/)(?!wp-)[a-z0-9-]+(/[a-z0-9-]+)*/$'
+title_suffix = "– Research Corporation for Science Advancement (RCSA)"
+agency = "Research Corporation for Science Advancement"
+max_pages = 15
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["physical sciences", "chemistry", "materials", "foundation"]
+
+[[channel]]
+id = "email-rcsa"
+name = "RCSA email list"
+covers = "RCSA program announcements, calls and deadlines"
+means = "email"
+senders = []
+signup = "https://rescorp.org/rcsa/email-list/"
+frequency = "as delivered"
+enabled = false
+tags = ["physical sciences", "chemistry", "materials", "foundation"]
+
+[[channel]]
+id = "foundation-dreyfus-feed"
+name = "Camille and Henry Dreyfus Foundation news feed"
+covers = "New Dreyfus programs and calls in the chemical sciences, filtered to call-like posts"
+means = "rss"
+handler = "rss"
+url = "https://www.dreyfus.org/feed/"
+item_pattern = "funding-calls"
+agency = "Camille and Henry Dreyfus Foundation"
+frequency = "weekly"
+min_bucket = "possible"
+enabled = false
+tags = ["chemistry", "materials", "foundation"]
+
+[[channel]]
+id = "foundation-schmidt-feed"
+name = "Schmidt Sciences news feed"
+covers = "Schmidt Sciences programs and calls (AI for science, climate, astrophysics, science systems), filtered to call-like posts"
+means = "rss"
+handler = "rss"
+url = "https://www.schmidtsciences.org/feed/"
+item_pattern = "funding-calls"
+agency = "Schmidt Sciences"
+frequency = "weekly"
+min_bucket = "possible"
+enabled = false
+tags = ["physical sciences", "computing", "climate", "foundation"]
+
+[[channel]]
+id = "foundation-simons-feed"
+name = "Simons Foundation news feed"
+covers = "Simons Foundation programs, collaborations and calls in mathematics, physical sciences and life sciences, filtered to call-like posts"
+means = "rss"
+handler = "rss"
+url = "https://www.simonsfoundation.org/feed/"
+item_pattern = "funding-calls"
+agency = "Simons Foundation"
+frequency = "weekly"
+min_bucket = "possible"
+enabled = false
+tags = ["physical sciences", "mathematics", "biomedical", "foundation"]
+
+[[channel]]
+id = "foundation-heising-simons-feed"
+name = "Heising-Simons Foundation news feed"
+covers = "Heising-Simons science calls and fellowships (astronomy, physics, science events), filtered to call-like posts"
+means = "rss"
+handler = "rss"
+url = "https://www.hsfoundation.org/feed/"
+item_pattern = "funding-calls"
+agency = "Heising-Simons Foundation"
+frequency = "weekly"
+min_bucket = "possible"
+enabled = false
+tags = ["physical sciences", "space", "foundation"]
+
+# Named programs: foundations, societies and companies. Selection and eligibility notes are in
+# references/foundations.md. Sites that block scripts are browser check-ins (check_in_browser),
+# shown as reminders in the months their calls usually open.
+
+[[channel]]
+id = "program-keck"
+name = "W. M. Keck Foundation research program (sitemap)"
+covers = "Keck research program pages and research-application news. Limited submission: up to 3 per institution through the campus liaison"
+means = "sitemap"
+handler = "sitemap"
+url = "https://www.wmkeck.org/sitemap_index.xml"
+sitemap_pattern = '/(page|news)-sitemap\d*\.xml$'
+loc_pattern = '^https://www\.wmkeck\.org/(research-(overview|faq)/|news/[^/]*research[^/]*/)$'
+agency = "W. M. Keck Foundation"
+max_pages = 6
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["physical sciences", "biomedical", "foundation", "limited submission"]
+
+[[channel]]
+id = "program-packard"
+name = "Packard Fellowships for Science and Engineering (sitemap)"
+covers = "Packard Fellowship guidelines and timeline pages. Only faculty at the 50 invited institutions, nominated by the institution, in their first three years"
+means = "sitemap"
+handler = "sitemap"
+url = "https://www.packard.org/sitemap_index.xml"
+sitemap_pattern = '/page-sitemap\d*\.xml$'
+loc_pattern = '^https://www\.packard\.org/approach/fellowships-for-science-engineering/(eligibility/|award-timeline/)?$'
+agency = "David and Lucile Packard Foundation"
+max_pages = 4
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["physical sciences", "engineering", "foundation", "limited submission"]
+
+[[channel]]
+id = "program-blavatnik-national"
+name = "Blavatnik National Awards for Young Scientists (sitemap)"
+covers = "Blavatnik National Awards dates, guidelines and eligible institutions. Institutional nomination, one per category (Life Sciences, Physical Sciences & Engineering, Chemical Sciences); nominee born in or after 1985"
+means = "sitemap"
+handler = "sitemap"
+url = "http://blavatnikawards.org/sitemap.xml"
+loc_pattern = '^https?://blavatnikawards\.org/awards/national-awards/(important-dates-national/|nomination-guidelines/|institutions/)?$'
+agency = "Blavatnik Family Foundation and New York Academy of Sciences"
+max_pages = 4
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["physical sciences", "chemistry", "engineering", "biomedical", "foundation", "limited submission"]
+
+[[channel]]
+id = "program-searle"
+name = "Searle Scholars Program (sitemap)"
+covers = "Searle Scholars cycle dates and eligibility. Participating institutions only; biomedical and related chemistry; first tenure-track appointment within about two years"
+means = "sitemap"
+handler = "sitemap"
+url = "https://searlescholars.org/sitemap.xml"
+loc_pattern = '^https://searlescholars\.org/application-information/(award-cycle-dates|award-information/process-and-eligibility)/$'
+agency = "Kinship Foundation"
+max_pages = 2
+page_delay = 5
+min_bucket = "possible"
+frequency = "monthly"
+enabled = false
+tags = ["biomedical", "chemistry", "foundation", "limited submission"]
+
+[[channel]]
+id = "program-welch"
+name = "Welch Foundation research grants (page watch)"
+covers = "Welch research grants in chemistry. Texas institutions only; deadline January 31 each year"
+means = "page"
+handler = "page"
+url = "https://welch1.org/grants-programs/research-grants"
+agency = "The Welch Foundation"
+min_bucket = "possible"
+frequency = "monthly"
+enabled = false
+tags = ["chemistry", "foundation", "texas only"]
+
+[[channel]]
+id = "program-acs-prf"
+name = "ACS Petroleum Research Fund"
+covers = "ACS PRF Doctoral New Investigator and New Directions grants. The ACS site blocks scripts, so check it in your own browser"
+means = "manual"
+check_in_browser = true
+url = "https://www.acs.org/funding/grants/petroleum-research-fund.html"
+agency = "American Chemical Society"
+months = [12, 1, 2, 3]
+frequency = "monthly"
+enabled = false
+tags = ["chemistry", "materials", "energy", "society"]
+
+[[channel]]
+id = "program-sloan-fellowship"
+name = "Sloan Research Fellowships"
+covers = "Sloan Research Fellowships: department nomination, early-career tenure-track faculty in chemistry, physics, computer science, mathematics and other listed fields. The site blocks scripts, so check it in your own browser"
+means = "manual"
+check_in_browser = true
+url = "https://sloan.org/fellowships"
+agency = "Alfred P. Sloan Foundation"
+months = [7, 8, 9]
+frequency = "monthly"
+enabled = false
+tags = ["physical sciences", "chemistry", "computing", "foundation"]
+
+[[channel]]
+id = "program-beckman-byi"
+name = "Beckman Young Investigators"
+covers = "Beckman Young Investigator letters of intent: first four years of a tenure-track appointment, institutional endorsement. The site blocks scripts, so check it in your own browser"
+means = "manual"
+check_in_browser = true
+url = "https://www.beckman-foundation.org/programs/beckman-young-investigator/"
+agency = "Arnold and Mabel Beckman Foundation"
+months = [5, 6, 7, 8]
+frequency = "monthly"
+enabled = false
+tags = ["chemistry", "biomedical", "physical sciences", "foundation"]
+
+[[channel]]
+id = "program-sony-research-award"
+name = "Sony Research Award Program (Focused Research Award)"
+covers = "Sony Focused Research Awards on Sony-chosen themes, US, Canada, India and listed European countries. The site blocks scripts, so check it in your own browser"
+means = "manual"
+check_in_browser = true
+url = "https://www.sony.com/en/SonyInfo/research-award-program/"
+agency = "Sony Group Corporation"
+months = [7, 8, 9]
+frequency = "monthly"
+enabled = false
+tags = ["computing", "industry"]
+
+[[channel]]
+id = "program-amazon-research-awards"
+name = "Amazon Research Awards calls (sitemap)"
+covers = "Amazon Research Awards calls for proposals, twice a year, each with several topic calls"
+means = "sitemap"
+handler = "sitemap"
+url = "https://www.amazon.science/sitemap.xml"
+sitemap_pattern = 'sitemap-\d{6}\.xml$'
+newest_sitemaps = 2
+loc_pattern = '^https://www\.amazon\.science/research-awards/call-for-proposals/[a-z0-9-]+$'
+title_suffix = "- Amazon Science"
+agency = "Amazon"
+max_pages = 12
+page_delay = 10
+frequency = "weekly"
+enabled = false
+tags = ["computing", "industry"]
+
+[[channel]]
+id = "program-samsung-gro"
+name = "Samsung Global Research Outreach (page watch)"
+covers = "Samsung Advanced Institute of Technology GRO calls for university researchers, yearly (2026 topics included electronic and thermal-management materials)"
+means = "page"
+handler = "page"
+url = "https://semiconductor.samsung.com/sait/event/global-research-outreach/"
+agency = "Samsung Advanced Institute of Technology"
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["materials", "computing", "industry"]
+
+[[channel]]
+id = "program-ecs-toyota"
+name = "ECS Toyota Young Investigator Fellowship (feed)"
+covers = "ECS Toyota Young Investigator Fellowship calls and deadline changes: under 45, working in North America or Europe, ECS member, green-energy electrochemistry"
+means = "rss"
+handler = "rss"
+url = "https://www.electrochem.org/ecsnews/tag/ecs-toyota-young-investigator-fellowship/feed"
+agency = "The Electrochemical Society and Toyota Research Institute of North America"
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["energy", "materials", "chemistry", "society", "industry"]
+
+[[channel]]
+id = "program-tri-feed"
+name = "Toyota Research Institute news feed (filtered)"
+covers = "Toyota Research Institute research challenges and university programs, such as the Synthesis Advanced Research Challenge"
+means = "rss"
+handler = "rss"
+url = "https://www.tri.global/rss.xml"
+item_pattern = '(synthesis|SARC|research challenge|requests? for proposals|calls? for proposals|university research program|\bURP\b|apply)'
+agency = "Toyota Research Institute"
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["materials", "energy", "computing", "industry"]
+
+[[channel]]
+id = "program-cooperative-ai"
+name = "Cooperative AI Foundation grant calls (sitemap)"
+covers = "Cooperative AI Foundation grant calls and fellowships on multi-agent AI. Each round gets a new page"
+means = "sitemap"
+handler = "sitemap"
+url = "https://www.cooperativeai.com/sitemap.xml"
+loc_pattern = '^https://www\.cooperativeai\.com/(grants|calls-for-proposals|phd-fellowship)/[^/]+$'
+agency = "Cooperative AI Foundation"
+max_pages = 6
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["computing", "foundation"]
+
+[[channel]]
+id = "program-novo-nordisk-calls"
+name = "Novo Nordisk Foundation grant calls (feed)"
+covers = "Every Novo Nordisk Foundation call, including the Global Science Summit Programme and natural and technical sciences calls. Many calls are limited to Denmark or the Nordics"
+means = "rss"
+handler = "rss"
+url = "https://novonordiskfonden.dk/en/grant/feed/"
+agency = "Novo Nordisk Foundation"
+frequency = "weekly"
+enabled = false
+tags = ["biomedical", "physical sciences", "foundation"]
+
+[[channel]]
+id = "program-chen-science-prize"
+name = "Chen Institute and Science Prize for AI Accelerated Research (page watch)"
+covers = "Contest rules and dates for the Tianqiao and Chrissy Chen Institute and Science Prize: early-career scientists in AI-related fields, degree within 10 years, essay entry"
+means = "page"
+handler = "page"
+url = "https://chen.secure-platform.com/a/page/Rules"
+agency = "Tianqiao and Chrissy Chen Institute and Science (AAAS)"
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["computing", "biomedical", "foundation", "prize"]
+
+[[channel]]
+id = "program-ulri-discoveries"
+name = "UL Research Institutes Discoveries in Safety grants (page watch)"
+covers = "ULRI Discoveries in Safety calls (letter of intent first). All future calls are posted on this page; 2026 topics included recovering critical minerals from energy storage"
+means = "page"
+handler = "page"
+url = "https://ul.org/about/grants/"
+agency = "UL Research Institutes"
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["materials", "energy", "safety", "nonprofit"]
+
+[[channel]]
+id = "program-ccai-calls"
+name = "Climate Change AI calls (page watch)"
+covers = "Climate Change AI Innovation Grants and other calls. No future grant call planned as of 2026-11-04"
+means = "page"
+handler = "page"
+url = "https://www.climatechange.ai/calls"
+agency = "Climate Change AI"
+min_bucket = "possible"
+frequency = "monthly"
+enabled = false
+tags = ["climate", "computing", "nonprofit"]
+
+[[channel]]
+id = "program-google-org-feed"
+name = "Google.org news feed (filtered)"
+covers = "Google.org open calls and impact challenges (AI for the Global Goals ran in 2022 and 2023; AI for Science followed)"
+means = "rss"
+handler = "rss"
+url = "https://blog.google/outreach-initiatives/google-org/rss/"
+item_pattern = '(impact challenge|open call|apply|applications (are )?open|calls? for proposals|accelerator)'
+agency = "Google.org"
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["computing", "climate", "industry"]
+
 # ----- Institution-specific channels: setup fills these in -----
 
 [[channel]]
