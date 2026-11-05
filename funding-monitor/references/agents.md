@@ -23,7 +23,7 @@ This skill names capabilities, not tools. Use whatever your agent calls them.
 | Memory | a memory tool or memory server | draft keywords from the user's faculty page or papers instead, and treat the profile as the only durable record |
 | Ask the user | the agent's prompt or question tool, or plain text | in an unattended run, follow "Unattended runs" |
 | Send a file | the agent's attachment or file-sending tool | give the file's full path |
-| Drive a browser | Playwright through scan.py, or a browser tool | the page becomes a manual reminder |
+| Drive a browser | Playwright through scan.py for JavaScript pages, and a browser tool in the user's own browser for `check_in_browser` and blocked pages | the page becomes a manual reminder with its link |
 
 ## Telling a blocked network from a quiet week
 

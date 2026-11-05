@@ -22,7 +22,7 @@ Funding notices reach researchers through channels that overlap only partly: ass
 | `references/api-keys.md` | Getting and storing keys. Provider saved-search alerts. |
 | `references/channels.md` | Adding or changing channels, field reference, testing. |
 | `references/email-lists.md` | Which mailing lists to join for a given field, sign-up links, and how to record them. |
-| `references/foundations.md` | Private foundations: why their calls slip through, the four layers that catch them, adding a foundation, and a checked catalog for the physical sciences. |
+| `references/foundations.md` | Private foundations, societies and company programs: why their calls slip through, the layers that catch them, sites that block scripts, adding a foundation, and checked catalogs of foundations and named programs. |
 | `references/email-sweep.md` | Reading newsletters and alerts through an email tool. |
 | `references/agents.md` | Running under any agent: what the work needs, Codex and OpenCode settings, a blocked network, connecting email, unattended runs. |
 | `references/sources.md` | Source catalog with verification status. |
@@ -102,7 +102,7 @@ Follow `references/email-lists.md`: find what the user already receives (profile
 
 3. Sweep email for every enabled `email` and `alert` channel, following `references/email-sweep.md`. If you have no email tool, ask the user to connect their email provider, pointing to "Connecting email" in `references/agents.md`, and list those channels as not checked until they do.
 
-4. List the `manual` channels, and any `browser` channel the run log says fell back to manual, as reminders with their links in Coverage notes. In a live session, read one yourself with your web-fetch tool or `curl -sL` where robots rules allow, or offer a browser tool working in the user's own signed-in session if your agent has one. Unattended, only list them. Say clearly when a page could not be read.
+4. List the `manual` channels scan.py printed as due (`manual_reminders` in the summary), any `browser` channel the run log says fell back to manual, and every channel in `blocked_channels`, as reminders with their links in Coverage notes. In a live session, read them: a plain page with your web-fetch tool or `curl -sL` where robots rules allow, and a `check_in_browser` or blocked page with a browser tool that works in the user's own browser (for example Claude in Chrome or the desktop app's built-in browser), exactly as the user would check it. If a challenge or CAPTCHA appears there, ask the user to complete it. Unattended, only list them. Say clearly when a page could not be read.
 
 5. Merge (by Grants.gov id, SAM.gov notice id, opportunity number, or title) and write the digest below. In a live session, give it in your reply unless the user asks for a file. In an unattended run, write it to `out/funding-digest-<date>.md` in the working folder and give that path.
 
@@ -175,6 +175,7 @@ The script gathers and pre-sorts. The email sweep and judgment steps need an age
 - Spell out each acronym at its first use in a digest.
 - Never send email or create calendar invites with guests without explicit approval. Drafts stay unsent.
 - Secrets follow the contract in `config/credentials.toml` and "Storing keys" in `references/api-keys.md`: store them with the host's own secret mechanism, deliver them to whatever process runs scan.py (host, sandbox, or container) in one of the accepted forms, and verify with `scan.py credentials`. This applies on any host, including ones the reference does not name. Never put keys in profiles, presented files, memory, or chat when the host offers a secure entry path.
+- Never try to get past a bot-protection challenge: no pretending to be a browser, no disguised headless browsers, no solving CAPTCHAs. A blocked site is checked in the user's own browser or listed for the user (see "Sites that block scripts" in `references/foundations.md`).
 - scan.py honors robots.txt unless the user's profile overrides it. Only the user makes that choice. Do not suggest overrides unprompted, and report overrides in Coverage notes.
 - Memory: if your agent has a memory tool, save only durable facts (profile location, confirmed core keywords, a decision to pursue or skip a named opportunity, a subscription change). Do not save digests. Tell the user in one line what was saved. Without a memory tool, the profile is the durable record, so propose profile edits instead.
 - When the user's interests change, propose the exact profile edit and apply it after they agree.
