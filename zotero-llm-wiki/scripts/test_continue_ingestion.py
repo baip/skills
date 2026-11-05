@@ -53,9 +53,15 @@ class Outputs(unittest.TestCase):
                         "primary": {"used_percent": 100, "resets_at": 1793800000}, "secondary": {"used_percent": 60}}}}]
             (day / "rollout-x.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
             self.assertEqual(ci.codex_limit(0, Path(d)), (True, 1793800000))
-            rows[1]["payload"]["rate_limits"]["primary"]["used_percent"] = 70
+            tie = dict(rows[1]); tie["payload"] = {"type": "token_count", "rate_limits": {
+                "primary": {"used_percent": 97, "resets_at": 1793800000}, "secondary": {"used_percent": 60}}}
+            (day / "rollout-y.jsonl").write_text(json.dumps(tie))     # same second, lower percentage
+            self.assertEqual(ci.codex_limit(0, Path(d)), (True, 1793800000))
+            (day / "rollout-y.jsonl").unlink()
+            rows[1]["payload"]["rate_limits"]["primary"]["used_percent"] = 92
             (day / "rollout-x.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
             self.assertEqual(ci.codex_limit(0, Path(d)), (False, None))
+            self.assertEqual(ci.codex_limit(0, Path(d), threshold=90), (True, 1793800000))
 
 
 FAKE = r'''#!/bin/sh
@@ -63,8 +69,10 @@ FAKE = r'''#!/bin/sh
 n=$(cat "$STATE" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$STATE"
 act=$(sed -n "${n}p" "$PLAN")
 case "$act" in
-  commit) echo $n > page$n.md; git add page$n.md; git commit -qm "phase $n"; echo "committed";;
+  commit) echo $n > page$n.md; git add -A; git commit -qm "phase $n"; echo "committed";;
   limit) echo "You've hit your usage limit. Try again in 0h 0m";;
+  interrupt) echo '{"type":"thread.started","thread_id":"T9"}'; sleep 0.2; kill -INT $PPID; sleep 1;;
+  credits) echo x > stray.md; echo "Your workspace is out of credits. Add credits to continue.";;
   dirty) echo x > stray.md; echo "left a file";;
   *) echo "nothing pending";;
 esac
@@ -79,6 +87,8 @@ class Loop(unittest.TestCase):
                       ["commit", "-q", "--allow-empty", "-m", "start"]):
                 subprocess.run(["git", "-C", str(wiki), *c], check=True)
             (aux / "agent.sh").write_text(FAKE); os.chmod(aux / "agent.sh", 0o755)
+            if plan and plan[0] == "dirty-start":
+                (wiki / "pending.md").write_text("x"); plan = plan[1:]
             (aux / "plan").write_text("\n".join(plan) + "\n")
             env = {"CONTINUE_INGESTION_CMD": str(aux / "agent.sh"), "PLAN": str(aux / "plan"),
                    "STATE": str(aux / "state"), "CONTINUE_INGESTION_QUIET": "1"}
@@ -125,6 +135,21 @@ class Loop(unittest.TestCase):
         commits, log = self.run_plan(["commit", "commit"], "--after-phase", "echo x > stray.md")
         self.assertEqual(commits, 1)
         self.assertIn("--after-phase command left uncommitted changes", log)
+
+    def test_out_of_credits_stops(self):
+        commits, log = self.run_plan(["commit", "credits", "commit"])
+        self.assertEqual(commits, 1)
+        self.assertIn("stopped: out of credits", log)
+
+    def test_resume_allows_dirty_start(self):
+        commits, log = self.run_plan(["dirty-start", "commit", "idle"], "--resume", "S1")
+        self.assertEqual(commits, 1)
+
+    def test_ctrl_c_logs_session(self):
+        commits, log = self.run_plan(["commit", "interrupt", "commit"])
+        self.assertEqual(commits, 1)
+        self.assertIn("session T9", log)
+        self.assertIn("stopped: interrupted (Ctrl-C)", log)
 
     def test_max_phases(self):
         commits, log = self.run_plan(["commit"] * 5, "--max-phases", "3")

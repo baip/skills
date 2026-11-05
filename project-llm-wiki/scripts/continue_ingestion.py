@@ -2,6 +2,7 @@
 """Run "Continue ingestion" sessions back to back, one batch phase per session, without a person at the keyboard.
 
   python3 continue_ingestion.py WIKI --agent codex|claude [--max-phases N] [--max-wait-hours H] [--after-phase CMD]
+  python3 continue_ingestion.py WIKI --agent codex --resume SESSION   # continue a session that stopped mid-phase
   python3 continue_ingestion.py WIKI --stop        # end the loop after the current phase
 
 Each run starts a fresh headless session (`codex exec`, `claude -p`) with the prompt "Continue ingestion" in WIKI. The
@@ -17,19 +18,27 @@ A run without a new commit is classified:
 for work the sandbox blocks, such as `qmd embed`, which needs the GPU. A failing command is logged and the loop goes on.
 A command that leaves uncommitted changes stops it.
 
+"Out of credits" is waited on like a usage limit when Codex's readings show a full window (a team plan without extra
+credits reports a full 5-hour window that way), and stops the loop otherwise. When a run stops with work uncommitted, the stop message names the
+session: fix the cause (switch account, add credits), then rerun with --resume SESSION, which continues that session even
+though the wiki has its uncommitted work. Codex's `codex resume` picker lists only interactive sessions, but
+`codex resume SESSION` also opens one the loop started.
+
 The loop also stops when a phase leaves uncommitted changes (the schema asks the user before committing someone else's
 work), when the agent exits with an error, after --max-phases commits, or when `--stop` was run. A lock file in the
 repository's common git directory keeps two loops from running in worktrees of one repository at once. It does not see
 interactive sessions: do not work in the same repository while the loop runs.
 
-Raw output of every run goes to ~/.cache/continue-ingestion/<wiki folder>/, with a summary in loop.log.
+Raw output of every run goes to ~/.cache/continue-ingestion/<wiki folder>/, with a summary in loop.log, which names
+each run's session as soon as it starts. After Ctrl-C the loop logs the session to pass to --resume.
 Identical copies live in the zotero-llm-wiki, project-llm-wiki and zotero-wiki-chatgpt skills: change all three.
 """
-import argparse, datetime as dt, json, os, re, shutil, subprocess, sys, time
+import argparse, datetime as dt, json, os, re, shutil, subprocess, sys, time, uuid
 from pathlib import Path
 
 PROMPT = "Continue ingestion"
 CODEX_APP = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+NO_CREDITS = re.compile(r"out of credits|add credits|insufficient (?:credits|quota)|billing", re.I)
 LIMIT_WORDS = re.compile(r"usage limit|rate limit|limit reached|hit your limit|limit.{0,40}reset", re.I)
 
 
@@ -85,8 +94,12 @@ def parse_reset_text(text, now):
 
 
 def codex_limit(since, sessions=Path.home() / ".codex/sessions", threshold=99.0):
-    """(exhausted, reset epoch) from the newest rate-limit reading in Codex logs written since `since` (epoch)."""
-    newest = None
+    """(exhausted, reset epoch) from the Codex rate-limit readings written since `since` (epoch).
+
+    Subagents log readings in the same second with different percentages, so each window's peak over the last 10
+    minutes of readings counts, not the single newest line.
+    """
+    readings = []
     for day in sorted(sessions.glob("*/*/*")):
         try:
             if day.stat().st_mtime < since - 86400:
@@ -103,15 +116,19 @@ def codex_limit(since, sessions=Path.home() / ".codex/sessions", threshold=99.0)
                     try:
                         d = json.loads(line)
                         r = d["payload"]["rate_limits"]
-                    except (ValueError, KeyError, TypeError):
+                        ts = dt.datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")).timestamp()
+                    except (ValueError, KeyError, TypeError, AttributeError):
                         continue
-                    if r and (newest is None or d.get("timestamp", "") > newest[0]):
-                        newest = (d.get("timestamp", ""), r)
-    if newest is None:
+                    if r:
+                        readings.append((ts, r))
+    if not readings:
         return False, None
-    resets = [w.get("resets_at") for w in (newest[1].get("primary"), newest[1].get("secondary"))
-              if w and (w.get("used_percent") or 0) >= threshold]
-    resets = [r for r in resets if r]
+    newest = max(ts for ts, _ in readings)
+    resets = []
+    for name in ("primary", "secondary"):
+        windows = [r.get(name) for ts, r in readings if ts >= newest - 600 and r.get(name)]
+        if windows and max(w.get("used_percent") or 0 for w in windows) >= threshold:
+            resets += [w["resets_at"] for w in windows if w.get("resets_at")][-1:]
     return bool(resets), (max(resets) if resets else None)
 
 
@@ -200,6 +217,7 @@ def main(argv=None):
     ap.add_argument("--log-dir", type=Path)
     ap.add_argument("--after-phase", action="append", default=[], metavar="CMD",
                     help="shell command to run in the wiki after each committed phase (repeatable)")
+    ap.add_argument("--resume", metavar="SESSION", help="start by resuming this session (allowed on a dirty wiki)")
     ap.add_argument("--stop", action="store_true", help="ask a running loop to stop after its current phase")
     a = ap.parse_args(argv)
     wiki = a.wiki.expanduser().resolve()
@@ -210,7 +228,7 @@ def main(argv=None):
         return 0
     if stop_file.exists():
         stop_file.unlink()
-    if git(wiki, "status", "--porcelain"):
+    if git(wiki, "status", "--porcelain") and not a.resume:
         sys.exit("the wiki has uncommitted changes: commit or resolve them first (AGENTS.md, pre-existing changes)")
     lock = git_path(wiki, "--git-common-dir") / "continue-ingestion.lock"
     acquire_lock(lock)
@@ -224,8 +242,9 @@ def main(argv=None):
             fh.write(line + "\n")
 
     phases = waits = runs = 0
-    session = None
+    session = last_session = a.resume
     reason = ""
+    current = None
     try:
         while phases < a.max_phases:
             if stop_file.exists():
@@ -234,20 +253,41 @@ def main(argv=None):
             before, start = git(wiki, "rev-parse", "HEAD"), time.time()
             runs += 1
             cmd = command(a.agent, wiki, session, a.prompt)
+            current = session
+            if a.agent == "claude" and not session:
+                current = str(uuid.uuid4())       # Claude Code prints its session id only at the end
+                cmd += ["--session-id", current]
             log(f"run {runs}: {'resume ' + session if session else 'new session'} ({a.agent})")
+            if current:
+                log(f"session {current}")
             out_path = log_dir / f"{dt.datetime.now():%Y%m%d-%H%M%S}-run{runs}.out"
             with open(out_path, "w") as fh:
-                proc = subprocess.run(cmd, cwd=wiki, stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT)
+                proc = subprocess.Popen(cmd, cwd=wiki, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT, text=True, errors="replace")
+                for line in proc.stdout:
+                    fh.write(line)
+                    fh.flush()
+                    if current is None and '"thread.started"' in line:
+                        current = parse_output("codex", line)[0]
+                        if current:
+                            log(f"session {current}")
+                proc.wait()
             out = out_path.read_text(errors="replace")
             sid, final, error = parse_output(a.agent, out)
             session_used, session = session, None
+            last_session = sid or session_used or last_session
             after, dirty = git(wiki, "rev-parse", "HEAD"), git(wiki, "status", "--porcelain")
 
             limited, reset = False, None
             if after == before:
-                if a.agent == "codex":
-                    limited, reset = codex_limit(start)
                 text = f"{error} {final}"
+                no_credits = bool(NO_CREDITS.search(text))
+                if a.agent == "codex":
+                    # a team plan with no extra credits reports a full 5-hour window as "out of credits"
+                    limited, reset = codex_limit(start, threshold=90 if no_credits else 99)
+                if no_credits and not limited:
+                    reason = f"out of credits, with no usage window full: {error or final}"[:200]
+                    break
                 if not limited and LIMIT_WORDS.search(text):
                     limited = True
                 if limited and reset is None:
@@ -290,8 +330,13 @@ def main(argv=None):
             break
         else:
             reason = f"{phases} phases committed (--max-phases)"
+    except KeyboardInterrupt:
+        reason = "interrupted (Ctrl-C)"
+        last_session = current or last_session
     finally:
         lock.unlink(missing_ok=True)
+    if last_session and a.agent != "custom" and git(wiki, "status", "--porcelain"):
+        reason += f". Uncommitted work belongs to session {last_session}: continue with --resume {last_session}"
     log(f"stopped: {reason}")
     notify(f"{wiki.name}: stopped after {phases} phases. {reason}")
     return 0

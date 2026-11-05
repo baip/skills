@@ -132,6 +132,8 @@ items. A (page, cause) in the ledger is never queued again.
   the current phase.
   Add `--after-phase "qmd embed"` where qmd is set up: it runs after each committed phase, outside the agent's sandbox,
   which blocks the GPU that embedding needs.
+  After a stop that leaves uncommitted work, such as exhausted credits, fix the cause and rerun with `--resume
+  <session>`, which the stop message names.
 - **A small orchestrator context** (AGENTS.md §8.2b). These rules hold for any agent, and only the mechanics differ.
   - Read file lists, `git diff --stat` and one-line reports, never whole pages, diffs or check output. Reviewers
     and a checks runner validate the phase (next item) and return one line each.
