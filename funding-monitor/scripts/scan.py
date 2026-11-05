@@ -379,7 +379,19 @@ def _fix_xml(raw: bytes) -> bytes:
     return re.sub(rb"&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)", b"&amp;", raw)
 
 
+# Foundation and society news feeds mix calls with award news, staff news and stories. A channel
+# with item_pattern = "funding-calls" keeps only items whose title or summary reads like a call
+# or a new program. Any other item_pattern value is used as the regular expression itself.
+FUNDING_CALL_RX = (r"\b(apply|applications?|calls? for|requests? for (proposals|applications|information)|RFPs?"
+                   r"|funding (opportunit\w*|program\w*)|new (funding )?(program|initiative|award)s?"
+                   r"|launch(es|ed|ing)?|open call|now accepting|nominations?|letters? of intent|LOIs?"
+                   r"|deadline|accepting)\b")
+
+
 def h_rss(ch: dict, prof: dict, ctx: dict) -> list[dict]:
+    keep_rx = None
+    if ch.get("item_pattern"):
+        keep_rx = re.compile(FUNDING_CALL_RX if ch["item_pattern"] == "funding-calls" else ch["item_pattern"], re.I)
     try:
         raw = _request(ch["url"])
     except Exception as e:  # noqa: BLE001
@@ -396,9 +408,10 @@ def h_rss(ch: dict, prof: dict, ctx: dict) -> list[dict]:
             return []
     atom = "{http://www.w3.org/2005/Atom}"
     items = root.findall("./channel/item") or root.findall(f"{atom}entry")
-    chan_date = root.findtext("./channel/pubDate") or root.findtext(f"{atom}updated") or ""
+    chan_date = (root.findtext("./channel/pubDate") or root.findtext("./channel/lastBuildDate")
+                 or root.findtext(f"{atom}updated") or "")
     cutoff = dt.date.today() - dt.timedelta(days=ctx["since_days"])
-    out = []
+    out, skipped = [], 0
     for it in items:
         title = (it.findtext("title") or it.findtext(f"{atom}title") or "").strip()
         link = (it.findtext("link") or "").strip()
@@ -410,6 +423,9 @@ def h_rss(ch: dict, prof: dict, ctx: dict) -> list[dict]:
         pd = _parse_date(pub)
         if pd and pd < cutoff:
             continue
+        if keep_rx and not keep_rx.search(f"{title} {desc}"):
+            skipped += 1
+            continue
         num = re.search(r"\b((?:NSF|PD)\s?\d{2}-\d{3,4}|(?:RFA|PAR|PA|NOT|PAS)-[A-Z]{2}-\d{2}-\d{3})\b", f"{title} {desc}")
         dls = re.findall(r"((?:Full Proposal|Letter of Intent|Preliminary Proposal|Application Due|Deadline)[^:]{0,40}):\s*([A-Z][a-z]+ \d{1,2}, \d{4})", desc)
         out.append(_rec(source=ch["id"], channel=ch["id"], uid=f"rss:{link or title}", id=link,
@@ -417,7 +433,8 @@ def h_rss(ch: dict, prof: dict, ctx: dict) -> list[dict]:
                         agency_code=ch.get("agency_code", ""), status="posted", doc_type=ch.get("doc_type", "feed item"),
                         posted=pub.strip(), close="; ".join(f"{k}: {v}" for k, v in dls), url=link,
                         text=desc[:1500], evidence="feed", feed_date=chan_date.strip()))
-    ctx["log"].append(f"{ch['id']}: {len(out)} items (feed updated: {chan_date.strip() or 'not stated'})")
+    kept = f", {skipped} in the window did not match item_pattern" if keep_rx else ""
+    ctx["log"].append(f"{ch['id']}: {len(out)} items{kept} (feed updated: {chan_date.strip() or 'not stated'})")
     return out
 
 
@@ -511,7 +528,13 @@ def _deadline_text(s: str) -> str:
     if m:
         return m.group(0).strip()
     m = re.search(r"(?:Deadline|Due date|Closing date|Proposals? due|accepted until|due no later than)s?:?\s*((?:[A-Z][a-z]{2,8}\.? \d{1,2}, \d{4})|\d{1,2}/\d{1,2}/\d{4}|Rolling)", s, re.I)
-    return f"Deadline: {m.group(1)}" if m else ""
+    if m:
+        return f"Deadline: {m.group(1)}"
+    # Program calendars print the date first: "NOVEMBER 9, 2026 (11 p.m. AZ time) LOI Due".
+    found = re.findall(r"((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.? \d{1,2},? \d{4}(?:\s*\([^)]{1,40}\))?)"
+                       r"\s+((?:LOI|Letters? of Intent|Pre-?proposals?|Preliminary Proposals?|Full Proposals?|Final Applications?"
+                       r"|Applications?|Proposals?|Nominations?|White Papers?)\s+Due)\b", s, re.I)
+    return "; ".join(f"{label}: {date}" for date, label in found[:4])
 
 
 def h_web(ch: dict, prof: dict, ctx: dict) -> list[dict]:

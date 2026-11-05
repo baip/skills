@@ -80,6 +80,8 @@ Behavior observed on 2026-10-09 for both FR pages and the ORD weekly page:
 
 - Items sit under posted-date headings, so scan.py keeps only items posted within the scan window.
 - Each FR item is followed by "Funder Deadline", "Amount", and "Focus" text, which scan.py captures as the deadline and as scoring text.
+- The FR database is curated and incomplete. On 2026-11-04 it listed RCSA's Cottrell and Scialog calls (posted 2026-10-26) but not RCSA's Team Science Accelerator or the Dreyfus Program for Transformative Research. Pair it with direct foundation channels (`references/foundations.md`).
+- No UMass Amherst page found on 2026-11-04 says whether the campus licenses Pivot-RP, GrantForward or another funding database (UMass Lowell promotes GrantForward, UMass Dartmouth Pivot). Ask the Office of Research Development.
 - Only the first page of FR results is fetched. Sorting by newest first makes that sufficient for a weekly cadence, but a longer gap between scans can miss items, so check the site by hand after a long break.
 - The FR link pattern excludes the site's own navigation links (umassfoundationrelations.org, uma-foundation.org, umass.edu). It is a TOML literal string in single quotes, so backslashes need no doubling.
 

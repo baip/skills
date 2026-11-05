@@ -22,6 +22,7 @@ Funding notices reach researchers through channels that overlap only partly: ass
 | `references/api-keys.md` | Getting and storing keys. Provider saved-search alerts. |
 | `references/channels.md` | Adding or changing channels, field reference, testing. |
 | `references/email-lists.md` | Which mailing lists to join for a given field, sign-up links, and how to record them. |
+| `references/foundations.md` | Private foundations: why their calls slip through, the four layers that catch them, adding a foundation, and a checked catalog for the physical sciences. |
 | `references/email-sweep.md` | Reading newsletters and alerts through an email tool. |
 | `references/agents.md` | Running under any agent: what the work needs, Codex and OpenCode settings, a blocked network, connecting email, unattended runs. |
 | `references/sources.md` | Source catalog with verification status. |
@@ -60,7 +61,7 @@ This skill runs under any agent that can run shell commands. Its steps name capa
 
 ## Setup
 
-Follow `references/setup.md`. In short, draft keywords from memory and confirm them with the user before saving. Then choose channels (including institution and email channels), recommend the mailing lists the user should join with `references/email-lists.md`, walk through optional keys with `references/api-keys.md`, present the plan, and save the profile where the environment allows. Keywords drive everything downstream, so never skip the confirmation.
+Follow `references/setup.md`. In short, draft keywords from memory and confirm them with the user before saving. Then choose channels (including institution, foundation and email channels), recommend the mailing lists the user should join with `references/email-lists.md`, walk through optional keys with `references/api-keys.md`, present the plan, and save the profile where the environment allows. Keywords drive everything downstream, so never skip the confirmation.
 
 ## Plan
 
@@ -148,7 +149,7 @@ Offer to draft that email and leave it unsent.
 
 ## Audit coverage
 
-Run `plan`, then compare against `references/sources.md` and the user's field. Typical gaps: SAM.gov for defense-relevant work, saved-search alerts that include forecasts, NSF division newsletters and other agency lists from `references/email-lists.md`, the institution's limited-submission list, and a foundation channel. Give each gap a one-time action and point to the matching section of `references/api-keys.md` or `references/channels.md`.
+Run `plan`, then compare against `references/sources.md` and the user's field. Typical gaps: SAM.gov for defense-relevant work, saved-search alerts that include forecasts, NSF division newsletters and other agency lists from `references/email-lists.md`, the institution's limited-submission list, and the foundations that fund the user's field (`references/foundations.md`). When a call reached the user by some other route, find which layer should have caught it and add that channel. Give each gap a one-time action and point to the matching section of `references/api-keys.md` or `references/channels.md`.
 
 ## Scheduling
 

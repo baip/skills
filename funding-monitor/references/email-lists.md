@@ -86,5 +86,5 @@ Check `references/institutions/` for verified details about the user's instituti
 ### Foundations and societies
 
 - Candid RFP Bulletin, a weekly newsletter of foundation and corporate RFPs **S**.
-- Newsletters from the foundations that matter in the user's field. Identify them from the profile and the foundation-relations office, and find each sign-up page at run time.
+- Newsletters from the foundations that matter in the user's field. `references/foundations.md` lists the sign-up pages found so far (for example RCSA's email list, `https://rescorp.org/rcsa/email-list/` **V** 2026-11-04). For others, identify them from the profile and the foundation-relations office, and find each sign-up page at run time.
 - Professional societies in the user's field often send funding, award, and fellowship announcements to members. Ask which societies the user belongs to and check their communication preferences.

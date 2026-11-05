@@ -413,6 +413,108 @@ frequency = "weekly"
 enabled = false
 tags = ["energy", "materials", "manufacturing"]
 
+# ----- Private foundations: pick the ones that fund the user's field (references/foundations.md) -----
+# Foundation news feeds mix calls with award and staff news, so item_pattern = "funding-calls"
+# keeps only items that read like a call or a new program.
+
+[[channel]]
+id = "foundation-rcsa-feed"
+name = "Research Corporation for Science Advancement (RCSA) news feed"
+covers = "New RCSA programs and calls (Cottrell awards, Scialog, Team Science Accelerator), filtered to call-like posts"
+means = "rss"
+handler = "rss"
+url = "https://rescorp.org/feed/"
+item_pattern = "funding-calls"
+agency = "Research Corporation for Science Advancement"
+frequency = "weekly"
+min_bucket = "possible"
+enabled = false
+tags = ["physical sciences", "chemistry", "materials", "foundation"]
+
+[[channel]]
+id = "foundation-rcsa-pages"
+name = "RCSA program pages (sitemap)"
+covers = "RCSA program pages added or updated, which is where calls, eligibility and deadlines are posted"
+means = "sitemap"
+handler = "sitemap"
+url = "https://rescorp.org/sitemap.xml"
+sitemap_pattern = '/sitemap-\d+\.xml$'
+loc_pattern = '^https://rescorp\.org/(?!20\d\d/)(?!wp-)[a-z0-9-]+(/[a-z0-9-]+)*/$'
+title_suffix = "– Research Corporation for Science Advancement (RCSA)"
+agency = "Research Corporation for Science Advancement"
+max_pages = 15
+min_bucket = "possible"
+frequency = "weekly"
+enabled = false
+tags = ["physical sciences", "chemistry", "materials", "foundation"]
+
+[[channel]]
+id = "email-rcsa"
+name = "RCSA email list"
+covers = "RCSA program announcements, calls and deadlines"
+means = "email"
+senders = []
+signup = "https://rescorp.org/rcsa/email-list/"
+frequency = "as delivered"
+enabled = false
+tags = ["physical sciences", "chemistry", "materials", "foundation"]
+
+[[channel]]
+id = "foundation-dreyfus-feed"
+name = "Camille and Henry Dreyfus Foundation news feed"
+covers = "New Dreyfus programs and calls in the chemical sciences, filtered to call-like posts"
+means = "rss"
+handler = "rss"
+url = "https://www.dreyfus.org/feed/"
+item_pattern = "funding-calls"
+agency = "Camille and Henry Dreyfus Foundation"
+frequency = "weekly"
+min_bucket = "possible"
+enabled = false
+tags = ["chemistry", "materials", "foundation"]
+
+[[channel]]
+id = "foundation-schmidt-feed"
+name = "Schmidt Sciences news feed"
+covers = "Schmidt Sciences programs and calls (AI for science, climate, astrophysics, science systems), filtered to call-like posts"
+means = "rss"
+handler = "rss"
+url = "https://www.schmidtsciences.org/feed/"
+item_pattern = "funding-calls"
+agency = "Schmidt Sciences"
+frequency = "weekly"
+min_bucket = "possible"
+enabled = false
+tags = ["physical sciences", "computing", "climate", "foundation"]
+
+[[channel]]
+id = "foundation-simons-feed"
+name = "Simons Foundation news feed"
+covers = "Simons Foundation programs, collaborations and calls in mathematics, physical sciences and life sciences, filtered to call-like posts"
+means = "rss"
+handler = "rss"
+url = "https://www.simonsfoundation.org/feed/"
+item_pattern = "funding-calls"
+agency = "Simons Foundation"
+frequency = "weekly"
+min_bucket = "possible"
+enabled = false
+tags = ["physical sciences", "mathematics", "biomedical", "foundation"]
+
+[[channel]]
+id = "foundation-heising-simons-feed"
+name = "Heising-Simons Foundation news feed"
+covers = "Heising-Simons science calls and fellowships (astronomy, physics, science events), filtered to call-like posts"
+means = "rss"
+handler = "rss"
+url = "https://www.hsfoundation.org/feed/"
+item_pattern = "funding-calls"
+agency = "Heising-Simons Foundation"
+frequency = "weekly"
+min_bucket = "possible"
+enabled = false
+tags = ["physical sciences", "space", "foundation"]
+
 # ----- Institution-specific channels: setup fills these in -----
 
 [[channel]]
