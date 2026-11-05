@@ -65,6 +65,7 @@ act=$(sed -n "${n}p" "$PLAN")
 case "$act" in
   commit) echo $n > page$n.md; git add -A; git commit -qm "phase $n"; echo "committed";;
   limit) echo "You've hit your usage limit. Try again in 0h 0m";;
+  interrupt) echo '{"type":"thread.started","thread_id":"T9"}'; sleep 0.2; kill -INT $PPID; sleep 1;;
   credits) echo x > stray.md; echo "Your workspace is out of credits. Add credits to continue.";;
   dirty) echo x > stray.md; echo "left a file";;
   *) echo "nothing pending";;
@@ -137,6 +138,12 @@ class Loop(unittest.TestCase):
     def test_resume_allows_dirty_start(self):
         commits, log = self.run_plan(["dirty-start", "commit", "idle"], "--resume", "S1")
         self.assertEqual(commits, 1)
+
+    def test_ctrl_c_logs_session(self):
+        commits, log = self.run_plan(["commit", "interrupt", "commit"])
+        self.assertEqual(commits, 1)
+        self.assertIn("session T9", log)
+        self.assertIn("stopped: interrupted (Ctrl-C)", log)
 
     def test_max_phases(self):
         commits, log = self.run_plan(["commit"] * 5, "--max-phases", "3")

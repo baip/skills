@@ -28,10 +28,11 @@ work), when the agent exits with an error, after --max-phases commits, or when `
 repository's common git directory keeps two loops from running in worktrees of one repository at once. It does not see
 interactive sessions: do not work in the same repository while the loop runs.
 
-Raw output of every run goes to ~/.cache/continue-ingestion/<wiki folder>/, with a summary in loop.log.
+Raw output of every run goes to ~/.cache/continue-ingestion/<wiki folder>/, with a summary in loop.log, which names
+each run's session as soon as it starts. After Ctrl-C the loop logs the session to pass to --resume.
 Identical copies live in the zotero-llm-wiki, project-llm-wiki and zotero-wiki-chatgpt skills: change all three.
 """
-import argparse, datetime as dt, json, os, re, shutil, subprocess, sys, time
+import argparse, datetime as dt, json, os, re, shutil, subprocess, sys, time, uuid
 from pathlib import Path
 
 PROMPT = "Continue ingestion"
@@ -234,6 +235,7 @@ def main(argv=None):
     phases = waits = runs = 0
     session = last_session = a.resume
     reason = ""
+    current = None
     try:
         while phases < a.max_phases:
             if stop_file.exists():
@@ -242,10 +244,25 @@ def main(argv=None):
             before, start = git(wiki, "rev-parse", "HEAD"), time.time()
             runs += 1
             cmd = command(a.agent, wiki, session, a.prompt)
+            current = session
+            if a.agent == "claude" and not session:
+                current = str(uuid.uuid4())       # Claude Code prints its session id only at the end
+                cmd += ["--session-id", current]
             log(f"run {runs}: {'resume ' + session if session else 'new session'} ({a.agent})")
+            if current:
+                log(f"session {current}")
             out_path = log_dir / f"{dt.datetime.now():%Y%m%d-%H%M%S}-run{runs}.out"
             with open(out_path, "w") as fh:
-                proc = subprocess.run(cmd, cwd=wiki, stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT)
+                proc = subprocess.Popen(cmd, cwd=wiki, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT, text=True, errors="replace")
+                for line in proc.stdout:
+                    fh.write(line)
+                    fh.flush()
+                    if current is None and '"thread.started"' in line:
+                        current = parse_output("codex", line)[0]
+                        if current:
+                            log(f"session {current}")
+                proc.wait()
             out = out_path.read_text(errors="replace")
             sid, final, error = parse_output(a.agent, out)
             session_used, session = session, None
@@ -302,6 +319,9 @@ def main(argv=None):
             break
         else:
             reason = f"{phases} phases committed (--max-phases)"
+    except KeyboardInterrupt:
+        reason = "interrupted (Ctrl-C)"
+        last_session = current or last_session
     finally:
         lock.unlink(missing_ok=True)
     if last_session and a.agent != "custom" and git(wiki, "status", "--porcelain"):
