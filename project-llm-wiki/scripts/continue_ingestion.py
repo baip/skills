@@ -2,6 +2,7 @@
 """Run "Continue ingestion" sessions back to back, one batch phase per session, without a person at the keyboard.
 
   python3 continue_ingestion.py WIKI --agent codex|claude [--max-phases N] [--max-wait-hours H] [--after-phase CMD]
+  python3 continue_ingestion.py WIKI --agent codex --resume SESSION   # continue a session that stopped mid-phase
   python3 continue_ingestion.py WIKI --stop        # end the loop after the current phase
 
 Each run starts a fresh headless session (`codex exec`, `claude -p`) with the prompt "Continue ingestion" in WIKI. The
@@ -17,6 +18,11 @@ A run without a new commit is classified:
 for work the sandbox blocks, such as `qmd embed`, which needs the GPU. A failing command is logged and the loop goes on.
 A command that leaves uncommitted changes stops it.
 
+Exhausted credits (no reset time) also stop it. When a run stops with work uncommitted, the stop message names the
+session: fix the cause (switch account, add credits), then rerun with --resume SESSION, which continues that session even
+though the wiki has its uncommitted work. Codex's `codex resume` picker lists only interactive sessions, but
+`codex resume SESSION` also opens one the loop started.
+
 The loop also stops when a phase leaves uncommitted changes (the schema asks the user before committing someone else's
 work), when the agent exits with an error, after --max-phases commits, or when `--stop` was run. A lock file in the
 repository's common git directory keeps two loops from running in worktrees of one repository at once. It does not see
@@ -30,6 +36,7 @@ from pathlib import Path
 
 PROMPT = "Continue ingestion"
 CODEX_APP = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+NO_CREDITS = re.compile(r"out of credits|add credits|insufficient (?:credits|quota)|billing", re.I)
 LIMIT_WORDS = re.compile(r"usage limit|rate limit|limit reached|hit your limit|limit.{0,40}reset", re.I)
 
 
@@ -200,6 +207,7 @@ def main(argv=None):
     ap.add_argument("--log-dir", type=Path)
     ap.add_argument("--after-phase", action="append", default=[], metavar="CMD",
                     help="shell command to run in the wiki after each committed phase (repeatable)")
+    ap.add_argument("--resume", metavar="SESSION", help="start by resuming this session (allowed on a dirty wiki)")
     ap.add_argument("--stop", action="store_true", help="ask a running loop to stop after its current phase")
     a = ap.parse_args(argv)
     wiki = a.wiki.expanduser().resolve()
@@ -210,7 +218,7 @@ def main(argv=None):
         return 0
     if stop_file.exists():
         stop_file.unlink()
-    if git(wiki, "status", "--porcelain"):
+    if git(wiki, "status", "--porcelain") and not a.resume:
         sys.exit("the wiki has uncommitted changes: commit or resolve them first (AGENTS.md, pre-existing changes)")
     lock = git_path(wiki, "--git-common-dir") / "continue-ingestion.lock"
     acquire_lock(lock)
@@ -224,7 +232,7 @@ def main(argv=None):
             fh.write(line + "\n")
 
     phases = waits = runs = 0
-    session = None
+    session = last_session = a.resume
     reason = ""
     try:
         while phases < a.max_phases:
@@ -241,9 +249,13 @@ def main(argv=None):
             out = out_path.read_text(errors="replace")
             sid, final, error = parse_output(a.agent, out)
             session_used, session = session, None
+            last_session = sid or session_used or last_session
             after, dirty = git(wiki, "rev-parse", "HEAD"), git(wiki, "status", "--porcelain")
 
             limited, reset = False, None
+            if after == before and NO_CREDITS.search(f"{error} {final}"):
+                reason = f"out of credits: {error or final}"[:200]
+                break
             if after == before:
                 if a.agent == "codex":
                     limited, reset = codex_limit(start)
@@ -292,6 +304,8 @@ def main(argv=None):
             reason = f"{phases} phases committed (--max-phases)"
     finally:
         lock.unlink(missing_ok=True)
+    if last_session and a.agent != "custom" and git(wiki, "status", "--porcelain"):
+        reason += f". Uncommitted work belongs to session {last_session}: continue with --resume {last_session}"
     log(f"stopped: {reason}")
     notify(f"{wiki.name}: stopped after {phases} phases. {reason}")
     return 0
