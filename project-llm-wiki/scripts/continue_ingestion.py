@@ -29,6 +29,8 @@ work), when the agent exits with an error, after --max-phases commits, or when `
 repository's common git directory keeps two loops from running in worktrees of one repository at once. It does not see
 interactive sessions: do not work in the same repository while the loop runs.
 
+The loop raises its open-file limit (a macOS terminal starts at 256) before starting the agent, which inherits it.
+
 Raw output of every run goes to ~/.cache/continue-ingestion/<wiki folder>/, with a summary in loop.log, which names
 each run's session as soon as it starts. After Ctrl-C the loop logs the session to pass to --resume.
 Identical copies live in the zotero-llm-wiki, project-llm-wiki and zotero-wiki-chatgpt skills: change all three.
@@ -197,6 +199,30 @@ def acquire_lock(path):
     os.close(fd)
 
 
+def raise_open_file_limit():
+    """Raise this process's open-file limit, which the agent inherits, and return the new soft limit.
+
+    A terminal on macOS starts with a soft limit of 256 open files. A Codex orchestrator with 8 or more subagents, each
+    with shell sessions and log files, ran past it ("Too many open files") and lost a phase.
+    """
+    try:
+        import resource
+    except ImportError:            # Windows
+        return None
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    for want in (65536, 61440, 10240, 4096):
+        if want <= soft:
+            break
+        if hard != resource.RLIM_INFINITY and want > hard:
+            continue
+        try:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (want, hard))
+            break
+        except (ValueError, OSError):
+            continue
+    return resource.getrlimit(resource.RLIMIT_NOFILE)[0]
+
+
 def sleep_until(epoch, stop_file):
     while time.time() < epoch:
         if stop_file.exists():
@@ -232,6 +258,7 @@ def main(argv=None):
         sys.exit("the wiki has uncommitted changes: commit or resolve them first (AGENTS.md, pre-existing changes)")
     lock = git_path(wiki, "--git-common-dir") / "continue-ingestion.lock"
     acquire_lock(lock)
+    nofile = raise_open_file_limit()
     log_dir = (a.log_dir or Path.home() / ".cache/continue-ingestion" / wiki.name).expanduser()
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -257,7 +284,7 @@ def main(argv=None):
             if a.agent == "claude" and not session:
                 current = str(uuid.uuid4())       # Claude Code prints its session id only at the end
                 cmd += ["--session-id", current]
-            log(f"run {runs}: {'resume ' + session if session else 'new session'} ({a.agent})")
+            log(f"run {runs}: {'resume ' + session if session else 'new session'} ({a.agent}, open-file limit {nofile})")
             if current:
                 log(f"session {current}")
             out_path = log_dir / f"{dt.datetime.now():%Y%m%d-%H%M%S}-run{runs}.out"
