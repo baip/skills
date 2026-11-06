@@ -79,6 +79,17 @@ esac
 '''
 
 
+class OpenFiles(unittest.TestCase):
+    def test_raises_soft_limit(self):
+        import resource
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        try:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (256, hard))
+            self.assertGreaterEqual(ci.raise_open_file_limit(), 4096)
+        finally:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+
+
 class Loop(unittest.TestCase):
     def run_plan(self, plan, *extra):
         with tempfile.TemporaryDirectory() as d:
