@@ -252,26 +252,26 @@ integrators holding 25–40 pages each used half of a run's tokens):
   phrase) nobody answers questions: decide by the state file and this schema, or end the phase with the question in the
   final message and nothing left uncommitted (added 2026-11-04). Every phase ends with a commit, also one that changed
   nothing (an integration with nothing to integrate): its log entry says so, because the loop reads a phase without a
-  commit as stuck and stops (added 2026-11-07, after an empty phase stopped the loop in the sibling chatgpt wiki).
-  Subagents write their full reports to the cache folder and return one line.
+  commit as stuck and stops (added 2026-11-07, after an empty phase stopped the loop in the sibling zotero-chatgpt
+  wiki). Subagents write their full reports to the cache folder and return one line.
 - The main agent's own context grows with every call too, so it holds only what coordinating needs: file lists, `--stat`
   summaries and subagents' one-line reports, never whole pages, diffs or check output. Validation runs outside it (next
   item). The main agent wakes only when a subagent finishes: it relies on a completion notice where the agent gets one,
   and otherwise waits with the longest timeout available, never with short repeated checks. Batch size and the number of
   subagents at once go in the batch state file, so any agent that continues the batch uses them (rule added 2026-11-02,
-  after the orchestrator used half to two thirds of two batches' tokens in the sibling chatgpt wiki).
-- Validation is bounded like integration (rule added 2026-11-04, after validation subagents in the sibling chatgpt wiki
-  used 6–13M tokens per batch, as much as the orchestrator, mostly at contexts over 120k: each held a whole batch's
-  pages and then ran the checks on top). Reviewers start fresh from `tools/validator-brief.md`, never from a copy of the
-  orchestrator's context. Each reviews at most about 3 papers' new pages (reading) or one integrator group's pages
-  (integration), writes its findings to the cache folder and returns one line. Checks run in a context that holds no
-  page content: their output goes to files and only summary lines are read. A failure goes to a fresh subagent with only
-  the failing items. Every agent waits on a long command with the longest timeout available.
+  after the orchestrator used half to two thirds of two batches' tokens in the sibling zotero-chatgpt wiki).
+- Validation is bounded like integration (rule added 2026-11-04, after validation subagents in the sibling
+  zotero-chatgpt wiki used 6–13M tokens per batch, as much as the orchestrator, mostly at contexts over 120k: each held
+  a whole batch's pages and then ran the checks on top). Reviewers start fresh from `tools/validator-brief.md`, never
+  from a copy of the orchestrator's context. Each reviews at most about 3 papers' new pages (reading) or one integrator
+  group's pages (integration), writes its findings to the cache folder and returns one line. Checks run in a context
+  that holds no page content: their output goes to files and only summary lines are read. A failure goes to a fresh
+  subagent with only the failing items. Every agent waits on a long command with the longest timeout available.
 - Check originals before assigning readers: `zot.py pdfpath KEY` for each item, one call and no reader. An item already
   *metadata* for lack of a readable PDF is not batched again unless `zot.py changed` reports a PDF change or the user
   asks, and filed items leave the batch queue. When no readable item remains, the state file says so and the next
   session stops without a commit. That is not a phase, and it ends a headless loop on purpose (rule added 2026-11-07,
-  after batches in the sibling chatgpt wiki sent 48 readers to originals already recorded as unavailable and kept
+  after batches in the sibling zotero-chatgpt wiki sent 48 readers to originals already recorded as unavailable and kept
   already-read papers in their queue).
 - Integrators read the briefs and the pages they own, not PDFs or the index.
 
@@ -279,9 +279,9 @@ integrators holding 25–40 pages each used half of a run's tokens):
 - Readers read `tools/reader-brief.md` and their paper, and skip the session protocol (§8.1). Integrators read
   `tools/integrator-brief.md`, and validators `tools/validator-brief.md`. The orchestrator reads
   `tools/orchestrator-brief.md` instead of the session protocol (§8.1), `tools/README.md` and the skill's files (added
-  2026-11-07, after the orchestrator of a 39-paper batch in the main wiki ran at mean contexts of 82–109k tokens, its
+  2026-11-07, after the orchestrator of a 39-paper batch in the zotero wiki ran at mean contexts of 82–109k tokens, its
   startup having loaded SKILL.md, a memory search, the whole state file and part of `tools/README.md`, against 40–53k
-  with such a brief in the sibling chatgpt wiki).
+  with such a brief in the sibling zotero-chatgpt wiki).
 - A reader's link candidates come from a search for its paper (about the top 15), never a full list of pages.
 - Read an existing source page head first (TL;DR, key contributions, section map), then only the sections or part
   notes needed, unless auditing it.

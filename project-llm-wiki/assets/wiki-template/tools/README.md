@@ -152,10 +152,10 @@ items. A (page, cause) in the ledger is never queued again.
     errors, report judgment calls and run no checks.
   - Checks runner: the orchestrator itself or a small fresh subagent. It writes each check's output to `<cache>/checks/`
     and reads only the last lines. A failure goes to a fresh subagent with only the failing items.
-  - Measured before the change (chatgpt wiki, batches 199–210, 31 validators): 0.4–7.6M tokens each, 3.6M on average at
-    a mean context of 108k. Each read 400–600 kB of notes, records, reports or diffs, then ran the build, checks, tests
-    and search-index refresh on top, so half or more of its calls ran above 120k. Seven started as forks of the
-    orchestrator at 63–82k. Split reviews of 13–17 calls cost 0.6–0.9M.
+  - Measured before the change (zotero-chatgpt wiki, batches 199–210, 31 validators): 0.4–7.6M tokens each, 3.6M on
+    average at a mean context of 108k. Each read 400–600 kB of notes, records, reports or diffs, then ran the build,
+    checks, tests and search-index refresh on top, so half or more of its calls ran above 120k. Seven started as forks
+    of the orchestrator at 63–82k. Split reviews of 13–17 calls cost 0.6–0.9M.
   - After the change (batches 211–239, 29 batches): validation 4.6M tokens per batch (2.2–6.7M) against 9.8M, but the
     orchestrator 13.2M against 9.7M, since it coordinates about 30 subagents per batch instead of about 20. A batch used
     37.0M against 39.3M, within the spread (24.9–54.9M). About half of the orchestrator's tokens are its startup reading

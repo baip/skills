@@ -157,8 +157,8 @@ Lint checks the line format, outcome, basis length and links.
     whole context again.
   - Record batch size and subagents at once in the batch state file. An orchestrator's cost per phase is roughly
     fixed, so larger batches and more subagents at once spread it over more papers.
-  - Measured: in two 8-paper batches of the sibling chatgpt wiki (2026-11-02), the orchestrator used 46 % and 64 %
-    of the tokens: 95–163 calls per phase at a mean context of 95–151k tokens (peak 251k), many of them checks on
+  - Measured: in two 8-paper batches of the sibling zotero-chatgpt wiki (2026-11-02), the orchestrator used 46 % and
+    64 % of the tokens: 95–163 calls per phase at a mean context of 95–151k tokens (peak 251k), many of them checks on
     running subagents and whole diffs or files it read itself, while readers and integrators averaged 56–71k.
   - After the change, in the next ten 8-paper batches of that wiki (batches 200–209, 2026-11-03 to 2026-11-04), a batch
     used 32–51M tokens (mean 39M) against 52–57M before, and the orchestrator 7–12M (21–28 %) against 24–36M, in 112–174
@@ -173,10 +173,10 @@ Lint checks the line format, outcome, basis length and links.
     errors, report judgment calls and run no checks.
   - Checks runner: the orchestrator itself or a small fresh subagent. It writes each check's output to `<cache>/checks/`
     and reads only the last lines. A failure goes to a fresh subagent with only the failing items.
-  - Measured before the change (chatgpt wiki, batches 199–210, 31 validators): 0.4–7.6M tokens each, 3.6M on average at
-    a mean context of 108k. Each read 400–600 kB of notes, records, reports or diffs, then ran the build, checks, tests
-    and search-index refresh on top, so half or more of its calls ran above 120k. Seven started as forks of the
-    orchestrator at 63–82k. Split reviews of 13–17 calls cost 0.6–0.9M.
+  - Measured before the change (zotero-chatgpt wiki, batches 199–210, 31 validators): 0.4–7.6M tokens each, 3.6M on
+    average at a mean context of 108k. Each read 400–600 kB of notes, records, reports or diffs, then ran the build,
+    checks, tests and search-index refresh on top, so half or more of its calls ran above 120k. Seven started as forks
+    of the orchestrator at 63–82k. Split reviews of 13–17 calls cost 0.6–0.9M.
   - After the change (batches 211–239, 29 batches): validation 4.6M tokens per batch (2.2–6.7M) against 9.8M, but the
     orchestrator 13.2M against 9.7M, since it coordinates about 30 subagents per batch instead of about 20. A batch used
     37.0M against 39.3M, within the spread (24.9–54.9M). About half of the orchestrator's tokens are its startup reading
