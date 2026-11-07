@@ -8,9 +8,9 @@ about 80 times per phase, so read only what this brief names.
 ## Start
 
 1. `git status --short`. Uncommitted changes you were not resumed into are pre-existing: stop and report them (§2.10).
-2. Find this wiki's batch: `ls -d ~/.cache/zotero-wiki/<wiki>-*/`, where `<wiki>` is this folder's name. Folders with
-   another prefix belong to sibling wikis. With no folder, nothing is pending: start a new batch if the user named items
-   or a collection, otherwise say there is nothing to ingest and stop without a commit.
+2. Find this wiki's batch: `ls -d ~/.cache/llm-wiki/<wiki>/*/`, where `<wiki>` is this folder's name. With no folder,
+   nothing is pending: start a new batch if the user named items or a collection, otherwise say there is nothing to
+   ingest and stop without a commit.
 3. Read only the state file's scalar fields: `jq 'with_entries(select(.value | type != "array"))' <folder>/state.json`.
    Read a list (items, groups) only when you launch the subagents that need it. If the state says no readable item is
    left, report that and stop without a commit. This is the one stop without a commit, and it ends a headless loop on

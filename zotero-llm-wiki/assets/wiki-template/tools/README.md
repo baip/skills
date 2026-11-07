@@ -130,11 +130,11 @@ Lint checks the line format, outcome, basis length and links.
   than merging groups. Write each integrator's slice of the briefs (the claims aimed at its pages) to its own file in
   the cache folder, so it never greps all briefs. Launch a wave only with quota left for it: 9 integrators started just
   before a 5-hour limit used 1.6M tokens and edited nothing.
-- **One phase per orchestrator session.** The orchestrator ends its session after reading and after integration:
-  commit the checkpoint, write the next phase's instructions to the batch state file (phase, start revision, items,
-  integrator groups, cache paths), and stop, telling the user to start a new session with "Continue ingestion". The
-  user never writes a handoff prompt. With no batch folder under `~/.cache/zotero-wiki/`, nothing is pending: ask
-  what to ingest.
+- **One phase per orchestrator session.** The orchestrator ends its session after reading and after integration: commit
+  the checkpoint, write the next phase's instructions to the batch state file (phase, start revision, items, integrator
+  groups, cache paths), and stop, telling the user to start a new session with "Continue ingestion". The user never
+  writes a handoff prompt. With no batch folder under `~/.cache/llm-wiki/<wiki>/`, nothing is pending: ask what to
+  ingest.
   To run phases back to back without anyone at the keyboard, run `python3
   ~/.claude/skills/zotero-llm-wiki/scripts/continue_ingestion.py <wiki> --agent codex|claude` in a terminal (not from an
   agent session). It starts a fresh headless session per phase with that prompt and goes on while each phase commits.
@@ -181,12 +181,13 @@ Lint checks the line format, outcome, basis length and links.
     orchestrator 13.2M against 9.7M, since it coordinates about 30 subagents per batch instead of about 20. A batch used
     37.0M against 39.3M, within the spread (24.9–54.9M). About half of the orchestrator's tokens are its startup reading
     (context 23k at the first call, 62k by the tenth).
-- **Bounded reads.** Give each reader `tools/reader-brief.md` plus its assignment (key, filename, cache folder, batch notes)
-  and each integrator `tools/integrator-brief.md` plus its pages, briefs and sources. Readers take link candidates from a
-  search for their paper, never a full list of pages; integrators read briefs and the pages they own. Keep batch
-  queues, inventories, briefs and the orchestrator's state file in a cache folder outside the wiki, one folder per
-  batch (`~/.cache/zotero-wiki/<wiki>-<batch>/`). Delete it when the batch is complete and committed: the briefs,
-  reports and drafts in it are derived from pages that now exist, and next ingests belong in the log's `next:` line.
+- **Bounded reads.** Give each reader `tools/reader-brief.md` plus its assignment (key, filename, cache folder, batch
+  notes) and each integrator `tools/integrator-brief.md` plus its pages, briefs and sources. Readers take link
+  candidates from a search for their paper, never a full list of pages; integrators read briefs and the pages they own.
+  Keep batch queues, inventories, briefs and the orchestrator's state file in a cache folder outside the wiki, one
+  folder per batch (`~/.cache/llm-wiki/<wiki>/<batch>/`, where `<wiki>` is this folder's name). Delete it when the batch
+  is complete and committed: the briefs, reports and drafts in it are derived from pages that now exist, and next
+  ingests belong in the log's `next:` line.
   Nobody reads `index.md`, `log.md` or `reviewed.md` whole: use `catalog.py --nav`, `grep`, and the tools.
 - **With subagents** (Claude Code allows 20 concurrent subagents by default, `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`):
   keep the reader and integrator instruction files in a temp directory outside the wiki (in Claude Code, the session
@@ -242,8 +243,9 @@ tools are plain `python3 -I tools/…` commands, so what differs between agents 
 wiki needs:
 
 1. network access to `localhost:23119` (Zotero's local API, and Better BibTeX on the same port);
-2. writes to this folder, the system temp directory, the git directory if it is outside this folder (see Revision
-   history), and the skill folder (`{{SKILL_DIR}}`) when a tool changes (AGENTS.md §12);
+2. writes to this folder, the system temp directory, the batch cache `~/.cache/llm-wiki`, the git directory if it is
+   outside this folder (see Revision history), and the skill folder (`{{SKILL_DIR}}`) when a tool changes
+   (AGENTS.md §12);
 3. viewing local image files (rendered PDF pages) and poppler on the `PATH`;
 4. for qmd (optional): writes to `~/.cache/qmd` (the index behind `.qmd`, and the models), and network access to
    huggingface.co the first time the models download. Without these, use `tools/search.py`.
@@ -257,7 +259,7 @@ wiki needs:
   sandbox_mode = "workspace-write"
   [sandbox_workspace_write]
   network_access = true
-  writable_roots = ["<git directory, if outside this folder>", "<skill folder, resolved>", "<home>/.cache/qmd"]
+  writable_roots = ["<git directory, if outside this folder>", "<skill folder, resolved>", "<home>/.cache/qmd", "<home>/.cache/llm-wiki"]
   ```
 
   Some Codex versions keep `.git` folders read-only even inside writable roots; if a commit is refused, approve it

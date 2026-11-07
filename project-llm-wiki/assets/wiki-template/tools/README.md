@@ -122,8 +122,8 @@ items. A (page, cause) in the ledger is never queued again.
 - **Integrators** own about 10 pages each, run in waves within any cap on subagents, and treat source pages as the
   authority. Write each integrator's slice of the briefs to its own file in the cache folder.
 - **One phase per orchestrator session**: commit the checkpoint, write the next phase's instructions to the batch state
-  file (phase, start revision, items, integrator groups, cache paths), and stop, telling the user to start a new
-  session with "Continue ingestion". With no batch folder under `~/.cache/project-wiki/`, nothing is pending.
+  file (phase, start revision, items, integrator groups, cache paths), and stop, telling the user to start a new session
+  with "Continue ingestion". With no batch folder under `~/.cache/llm-wiki/<wiki>/`, nothing is pending.
   To run phases back to back without anyone at the keyboard, run `python3
   ~/.claude/skills/project-llm-wiki/scripts/continue_ingestion.py <wiki> --agent codex|claude` in a terminal (not from
   an agent session). It starts a fresh headless session per phase with that prompt and goes on while each phase commits.
@@ -160,9 +160,9 @@ items. A (page, cause) in the ledger is never queued again.
     orchestrator 13.2M against 9.7M, since it coordinates about 30 subagents per batch instead of about 20. A batch used
     37.0M against 39.3M, within the spread (24.9–54.9M). About half of the orchestrator's tokens are its startup reading
     (context 23k at the first call, 62k by the tenth).
-- **Cache folder**: `~/.cache/project-wiki/<wiki>-<batch>/` (on Windows, `%LOCALAPPDATA%\project-wiki\…`), outside
-  the wiki and the raw root. Subagents write full reports to `<cache>/reports/` and return one line. Delete the folder
-  when the batch is complete and committed.
+- **Cache folder**: `~/.cache/llm-wiki/<wiki>/<batch>/`, where `<wiki>` is this folder's name (on Windows,
+  `%LOCALAPPDATA%\llm-wiki\…`), outside the wiki and the raw root. Subagents write full reports to `<cache>/reports/`
+  and return one line. Delete the folder when the batch is complete and committed.
 - **Without subagents**, run the same phases in one session, in order: read and write every source page first, one
   document at a time, saving each integration brief to the cache folder; then integrate one page set at a time; then
   write the project and topic synthesis, index and log.
@@ -198,8 +198,9 @@ The tools are plain `python3 -I tools/…` commands, so what differs between age
 needs:
 
 1. reads of the raw root (`{{RAW_ROOT}}`), which is outside this folder;
-2. writes to this folder, the system temp directory, `~/.cache/project-wiki`, the git directory if it is outside this
-   folder (see Revision history), and the skill folder (`{{SKILL_DIR}}`) when a tool changes (AGENTS.md §12);
+2. writes to this folder, the system temp directory, the batch cache `~/.cache/llm-wiki`, the git directory if it is
+   outside this folder (see Revision history), and the skill folder (`{{SKILL_DIR}}`) when a tool changes
+   (AGENTS.md §12);
 3. running `python3`, `git`, poppler, pandoc, and a converter: `osascript` (macOS Office), `powershell` (Windows
    Office) or `soffice`;
 4. viewing local image files (rendered pages, extracted figures).
@@ -214,7 +215,7 @@ No network access is needed, except for qmd's first model download.
   ```toml
   sandbox_mode = "workspace-write"
   [sandbox_workspace_write]
-  writable_roots = ["<git directory, if outside this folder>", "<skill folder, resolved>", "<home>/.cache/project-wiki"]
+  writable_roots = ["<git directory, if outside this folder>", "<skill folder, resolved>", "<home>/.cache/llm-wiki"]
   ```
 
   LibreOffice is tried first, so a sandbox that refuses Word or PowerPoint automation needs nothing extra when

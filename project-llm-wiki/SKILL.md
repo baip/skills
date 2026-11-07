@@ -39,10 +39,10 @@ Check, and fix with the user, what setup depends on:
   clone works), or in any folder named by `PROJECT_LLM_WIKI_SKILL` (set it in the shell profile; on Windows, where
   links need Developer Mode, use the variable). For Codex and OpenCode link `~/.agents/skills/project-llm-wiki` (older Codex: `~/.codex/skills/`) to the same folder.
   `init_wiki.py` refuses to run from anywhere else.
-- **The agent may do what the wiki needs**: read the raw root, write in the wiki folder, the temp directory,
-  `~/.cache/project-wiki`, the git directory and this skill's folder, and run `python3`, `git`, poppler, pandoc and a
-  converter. The new wiki's `tools/README.md` ("Running under other coding agents and systems") gives the settings
-  for Codex, OpenCode and others.
+- **The agent may do what the wiki needs**: read the raw root, write in the wiki folder, the temp directory, the batch
+  cache `~/.cache/llm-wiki`, the git directory and this skill's folder, and run `python3`, `git`, poppler, pandoc and a
+  converter. The new wiki's `tools/README.md` ("Running under other coding agents and systems") gives the settings for
+  Codex, OpenCode and others.
 
 ## Setup interview
 

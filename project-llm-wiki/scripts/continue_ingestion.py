@@ -31,8 +31,8 @@ interactive sessions: do not work in the same repository while the loop runs.
 
 The loop raises its open-file limit (a macOS terminal starts at 256) before starting the agent, which inherits it.
 
-Raw output of every run goes to ~/.cache/continue-ingestion/<wiki folder>/, with a summary in loop.log, which names
-each run's session as soon as it starts. After Ctrl-C the loop logs the session to pass to --resume.
+Raw output of every run goes to ~/.cache/llm-wiki/continue-ingestion/<wiki folder>/, with a summary in loop.log, which
+names each run's session as soon as it starts. After Ctrl-C the loop logs the session to pass to --resume.
 Identical copies live in the zotero-llm-wiki, project-llm-wiki and zotero-wiki-chatgpt skills: change all three.
 """
 import argparse, datetime as dt, json, os, re, shutil, subprocess, sys, time, uuid
@@ -259,7 +259,7 @@ def main(argv=None):
     lock = git_path(wiki, "--git-common-dir") / "continue-ingestion.lock"
     acquire_lock(lock)
     nofile = raise_open_file_limit()
-    log_dir = (a.log_dir or Path.home() / ".cache/continue-ingestion" / wiki.name).expanduser()
+    log_dir = (a.log_dir or Path.home() / ".cache/llm-wiki/continue-ingestion" / wiki.name).expanduser()
     log_dir.mkdir(parents=True, exist_ok=True)
 
     def log(msg):
