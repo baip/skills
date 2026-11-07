@@ -249,11 +249,12 @@ integrators holding 25–40 pages each used half of a run's tokens):
   session with "Continue ingestion". That phrase is the whole prompt: find the batch state file in the cache folder and
   run its next phase. The state file therefore names the phase, the start revision, the items and the cache paths (rule
   added 2026-11-02). In a headless run (the skill's `scripts/continue_ingestion.py`, which starts each session with that
-  phrase) nobody answers questions: decide by the state file and this schema, or end the phase with the question in the
-  final message and nothing left uncommitted (added 2026-11-04). Every phase ends with a commit, also one that changed
-  nothing (an integration with nothing to integrate): its log entry says so, because the loop reads a phase without a
-  commit as stuck and stops (added 2026-11-07, after an empty phase stopped the loop in the sibling zotero-chatgpt
-  wiki). Subagents write their full reports to the cache folder and return one line.
+  phrase, or the first one with the user's request given by `--start`) nobody answers questions: decide by the state
+  file and this schema, or end the phase with the question in the final message and nothing left uncommitted (added
+  2026-11-04). Every phase ends with a commit, also one that changed nothing (an integration with nothing to integrate):
+  its log entry says so, because the loop reads a phase without a commit as stuck and stops (added 2026-11-07, after an
+  empty phase stopped the loop in the sibling zotero-chatgpt wiki). Subagents write their full reports to the cache
+  folder and return one line.
 - The main agent's own context grows with every call too, so it holds only what coordinating needs: file lists, `--stat`
   summaries and subagents' one-line reports, never whole pages, diffs or check output. Validation runs outside it (next
   item). The main agent wakes only when a subagent finishes: it relies on a completion notice where the agent gets one,
