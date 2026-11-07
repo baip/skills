@@ -141,8 +141,10 @@ Lint checks the line format, outcome, basis length and links.
   After a usage limit it waits for the reset (stopping if that is more than 6 hours away) and resumes the same session.
   It stops on anything else: no commit, uncommitted changes, an error, `--max-phases`, or `--stop`, which ends it after
   the current phase.
-  Add `--after-phase "qmd embed"` where qmd is set up: it runs after each committed phase, outside the agent's sandbox,
-  which blocks the GPU that embedding needs.
+  Add `--after-phase "qmd embed && qmd cleanup"` where qmd is set up: it runs after each committed phase, outside the
+  agent's sandbox, which blocks the GPU that embedding needs. `qmd cleanup` then drops what no longer belongs to any
+  page (embeddings of old page versions, records of deleted pages) and compacts the index, in seconds and without the
+  GPU.
   After a stop that leaves uncommitted work, such as exhausted credits, fix the cause and rerun with `--resume
   <session>`, which the stop message names.
   Subagents write their full reports to `<cache>/reports/` and return one line, which keeps the orchestrator's context
@@ -224,7 +226,8 @@ use `tools/search.py`.
   qmd embed
   ```
 
-- **Before each query session**: `qmd update && qmd embed`, which re-index and re-embed only pages that changed.
+- **Before each query session**: `qmd update && qmd embed && qmd cleanup`, which re-index and re-embed only pages that
+  changed.
 - **Query**: write the structured form yourself rather than pasting the question:
   `qmd query $'intent: <what to find, and what to avoid>\nlex: <exact terms, abbreviations, names>\nvec: <the idea in
   the wiki's own wording>'`. Use `qmd search "<exact words>"` for names and rare terms. Useful options: `-n 10`,
@@ -383,10 +386,10 @@ Use `year: undated` only when no publication date can be verified. Explain the m
 
 ### Query search mechanics (AGENTS.md §8.3)
 
-Find pages by search. Where qmd is set up (`.qmd` at the wiki root; tools/README.md), refresh it with `qmd update &&
-qmd embed`, then use `qmd query` with `intent:`, `lex:` and `vec:` lines you write yourself, and `qmd search` for exact
-names. Otherwise use `tools/search.py` (try several phrasings, synonyms and abbreviations; narrow with `--type` or
-`--collection`). 
+Find pages by search. Where qmd is set up (`.qmd` at the wiki root; tools/README.md), refresh it with `qmd update && qmd
+embed && qmd cleanup`, then use `qmd query` with `intent:`, `lex:` and `vec:` lines you write yourself, and `qmd search`
+for exact names. Otherwise use `tools/search.py` (try several phrasings, synonyms and abbreviations; narrow with
+`--type` or `--collection`).
 
 ### Claim audit procedure (AGENTS.md §8.5)
 

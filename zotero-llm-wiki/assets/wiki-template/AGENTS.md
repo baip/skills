@@ -66,7 +66,7 @@ else: reading, summarizing, cross-referencing, filing, tracking disagreements an
 ├── topics/       # synthesis hubs, usually mirroring a Zotero collection
 ├── analyses/     # filed answers, comparisons, audits; assets/ holds charts the agent made
 └── tools/        # zot.py, review.py, catalog.py, wikilint.py, relink.py, search.py, split.py, wikimeta.py, test_tools.py, README.md,
-                  # reader-brief.md, integrator-brief.md, validator-brief.md
+                  # reader-brief.md, integrator-brief.md, validator-brief.md, orchestrator-brief.md
 ```
 
 - No other top-level folders without a schema change. Flat folders; page names unique across folders.
@@ -277,7 +277,11 @@ integrators holding 25–40 pages each used half of a run's tokens):
 
 **Bounded reads** (rules added 2026-11-01 so that the cost of ingesting a paper does not grow with the wiki):
 - Readers read `tools/reader-brief.md` and their paper, and skip the session protocol (§8.1). Integrators read
-  `tools/integrator-brief.md`, and validators `tools/validator-brief.md`.
+  `tools/integrator-brief.md`, and validators `tools/validator-brief.md`. The orchestrator reads
+  `tools/orchestrator-brief.md` instead of the session protocol (§8.1), `tools/README.md` and the skill's files (added
+  2026-11-07, after the orchestrator of a 39-paper batch in the main wiki ran at mean contexts of 82–109k tokens, its
+  startup having loaded SKILL.md, a memory search, the whole state file and part of `tools/README.md`, against 40–53k
+  with such a brief in the sibling chatgpt wiki).
 - A reader's link candidates come from a search for its paper (about the top 15), never a full list of pages.
 - Read an existing source page head first (TL;DR, key contributions, section map), then only the sections or part
   notes needed, unless auditing it.

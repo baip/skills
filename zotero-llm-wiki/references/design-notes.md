@@ -172,10 +172,13 @@ about 85 calls per phase.
 The chatgpt wiki then gave its orchestrator a short brief (`docs/orchestrator-brief.md`) in place of the session
 protocol and the skill's references. Over the next five phases (2026-11-07) its context at the tenth call was 32–39k
 tokens against 56–70k, at the same 73–84 calls per phase, and it used 3.1–4.3M tokens per phase against 4.9–10.1M, about
-7M per batch against 13.2M. The brief is not ported here yet: this skill's AGENTS.md is the full schema, which both
-agents load on their own, so only `tools/README.md` and the session-start reads could be skipped, and no orchestrator
-has run a batch here under the current rules. The same runs added one rule: every phase commits, even one that changed
-nothing, because the headless loop reads a phase without a commit as stuck.
+7M per batch against 13.2M. It was ported here the same day as `tools/orchestrator-brief.md`. This skill's AGENTS.md is
+the full schema, which both agents load on their own, so the brief cannot replace it, but the main wiki's first batch
+under the current rules (39 papers, 2026-11-07) showed what else the orchestrator loaded: SKILL.md, a workspace-memory
+search, the whole state file and part of `tools/README.md`, about 150,000 characters, for mean contexts of 82–109k
+tokens per phase. The brief names only the state file's scalar fields and itself. Its effect here is not yet measured.
+The same runs added one rule: every phase commits, even one that changed nothing, because the headless loop reads a
+phase without a commit as stuck.
 
 ## 8. Known limits
 

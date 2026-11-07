@@ -130,8 +130,10 @@ items. A (page, cause) in the ledger is never queued again.
   After a usage limit it waits for the reset (stopping if that is more than 6 hours away) and resumes the same session.
   It stops on anything else: no commit, uncommitted changes, an error, `--max-phases`, or `--stop`, which ends it after
   the current phase.
-  Add `--after-phase "qmd embed"` where qmd is set up: it runs after each committed phase, outside the agent's sandbox,
-  which blocks the GPU that embedding needs.
+  Add `--after-phase "qmd embed && qmd cleanup"` where qmd is set up: it runs after each committed phase, outside the
+  agent's sandbox, which blocks the GPU that embedding needs. `qmd cleanup` then drops what no longer belongs to any
+  page (embeddings of old page versions, records of deleted pages) and compacts the index, in seconds and without the
+  GPU.
   After a stop that leaves uncommitted work, such as exhausted credits, fix the cause and rerun with `--resume
   <session>`, which the stop message names.
 - **A small orchestrator context** (AGENTS.md §8.2b). These rules hold for any agent, and only the mechanics differ.
@@ -184,7 +186,8 @@ page folders only, never the raw root or the bookkeeping files. Without it, use 
   qmd embed
   ```
 
-- **Before each query session**: `qmd update && qmd embed`. **Query** with `qmd query $'intent: …\nlex: …\nvec: …'`,
+- **Before each query session**: `qmd update && qmd embed && qmd cleanup`. **Query** with `qmd query $'intent: …\nlex:
+  …\nvec: …'`,
   and `qmd search "<exact words>"` for names. Treat results as leads and cite wiki pages, not qmd docids.
 
 ## Running under other coding agents and systems
@@ -334,9 +337,9 @@ empty or yes/no reason, or the field on a page that is not a source page, is an 
 
 ### Query search mechanics (AGENTS.md §8.3)
 
-Find pages by search. Where qmd is set up, refresh it with `qmd update && qmd embed`, then use `qmd query` and `qmd
-search`. Otherwise use `tools/search.py` (several phrasings, synonyms and abbreviations; narrow with `--type`,
-`--folder` or `--kind`).
+Find pages by search. Where qmd is set up, refresh it with `qmd update && qmd embed && qmd cleanup`, then use `qmd
+query` and `qmd search`. Otherwise use `tools/search.py` (several phrasings, synonyms and abbreviations; narrow with
+`--type`, `--folder` or `--kind`).
 
 ### Claim audit procedure (AGENTS.md §8.5)
 
