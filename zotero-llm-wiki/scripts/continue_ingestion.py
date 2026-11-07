@@ -2,11 +2,16 @@
 """Run "Continue ingestion" sessions back to back, one batch phase per session, without a person at the keyboard.
 
   python3 continue_ingestion.py WIKI --agent codex|claude [--max-phases N] [--max-wait-hours H] [--after-phase CMD]
+  python3 continue_ingestion.py WIKI --agent codex --start "Ingest the Zotero collection Mathematics"
   python3 continue_ingestion.py WIKI --agent codex --resume SESSION   # continue a session that stopped mid-phase
   python3 continue_ingestion.py WIKI --stop        # end the loop after the current phase
 
 Each run starts a fresh headless session (`codex exec`, `claude -p`) with the prompt "Continue ingestion" in WIKI. The
 wiki's schema makes every phase end with a commit, so a new commit means the phase finished and the next one starts.
+--start TEXT gives the first session TEXT instead of "Continue ingestion", for example "Ingest the Zotero collection
+Mathematics" to begin a batch. Later sessions, and a resume of the first one after a usage limit, get "Continue
+ingestion" (or --prompt), so the request is made once.
+
 A run without a new commit is classified:
 
   - usage limit: wait until the limit resets (Codex logs the reset time with every model call, Claude Code prints it in
@@ -238,7 +243,9 @@ def main(argv=None):
     ap.add_argument("--max-phases", type=int, default=20, help="stop after this many committed phases")
     ap.add_argument("--max-wait-hours", type=float, default=6, help="stop instead of waiting longer for a reset")
     ap.add_argument("--fallback-wait-hours", type=float, default=5, help="wait when a limit's reset time is unknown")
-    ap.add_argument("--prompt", default=PROMPT)
+    ap.add_argument("--prompt", default=PROMPT, help="prompt for every session (default: %(default)r)")
+    ap.add_argument("--start", metavar="TEXT", help="prompt for the first session only, such as a request to ingest "
+                    "a collection; later sessions get --prompt")
     ap.add_argument("--reset-margin", type=int, default=120, help="seconds to wait past a reset")
     ap.add_argument("--log-dir", type=Path)
     ap.add_argument("--after-phase", action="append", default=[], metavar="CMD",
@@ -246,6 +253,8 @@ def main(argv=None):
     ap.add_argument("--resume", metavar="SESSION", help="start by resuming this session (allowed on a dirty wiki)")
     ap.add_argument("--stop", action="store_true", help="ask a running loop to stop after its current phase")
     a = ap.parse_args(argv)
+    if a.start and a.resume:
+        ap.error("--start begins a new session and cannot be combined with --resume")
     wiki = a.wiki.expanduser().resolve()
     stop_file = git_path(wiki, "--git-dir") / "continue-ingestion.stop"
     if a.stop:
@@ -269,6 +278,7 @@ def main(argv=None):
             fh.write(line + "\n")
 
     phases = waits = runs = 0
+    start_prompt = a.start
     session = last_session = a.resume
     reason = ""
     current = None
@@ -279,12 +289,14 @@ def main(argv=None):
                 break
             before, start = git(wiki, "rev-parse", "HEAD"), time.time()
             runs += 1
-            cmd = command(a.agent, wiki, session, a.prompt)
+            prompt, start_prompt = start_prompt or a.prompt, None
+            cmd = command(a.agent, wiki, session, prompt)
             current = session
             if a.agent == "claude" and not session:
                 current = str(uuid.uuid4())       # Claude Code prints its session id only at the end
                 cmd += ["--session-id", current]
-            log(f"run {runs}: {'resume ' + session if session else 'new session'} ({a.agent}, open-file limit {nofile})")
+            log(f"run {runs}: {'resume ' + session if session else 'new session'} ({a.agent}, open-file limit {nofile})"
+                + (f", prompt {prompt!r}" if prompt != a.prompt else ""))
             if current:
                 log(f"session {current}")
             out_path = log_dir / f"{dt.datetime.now():%Y%m%d-%H%M%S}-run{runs}.out"
