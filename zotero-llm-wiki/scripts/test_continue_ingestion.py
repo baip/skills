@@ -66,7 +66,7 @@ class Outputs(unittest.TestCase):
 
 FAKE = r'''#!/bin/sh
 # fake agent: the script in $PLAN lists one action per run (commit, limit, dirty, idle)
-n=$(cat "$STATE" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$STATE"
+n=$(cat "$STATE" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$STATE"; echo "$*" >> "$STATE.prompts"
 act=$(sed -n "${n}p" "$PLAN")
 case "$act" in
   commit) echo $n > page$n.md; git add -A; git commit -qm "phase $n"; echo "committed";;
@@ -111,6 +111,7 @@ class Loop(unittest.TestCase):
                     os.environ.pop(k) if v is None else os.environ.__setitem__(k, v)
             commits = int(subprocess.run(["git", "-C", str(wiki), "rev-list", "--count", "HEAD"],
                                          capture_output=True, text=True).stdout) - 1
+            self.prompts = (aux / "state.prompts").read_text().splitlines()
             return commits, (aux / "log/loop.log").read_text()
 
     def test_commits_until_idle(self):
@@ -161,6 +162,16 @@ class Loop(unittest.TestCase):
         self.assertEqual(commits, 1)
         self.assertIn("session T9", log)
         self.assertIn("stopped: interrupted (Ctrl-C)", log)
+
+    def test_start_prompt_only_first(self):
+        commits, log = self.run_plan(["limit", "commit", "commit", "idle"], "--start", "Ingest the collection X")
+        self.assertEqual(commits, 2)
+        self.assertEqual(self.prompts, ["Ingest the collection X"] + ["Continue ingestion"] * 3)
+        self.assertIn("prompt 'Ingest the collection X'", log)
+
+    def test_start_with_resume_refused(self):
+        with self.assertRaises(SystemExit):
+            ci.main([".", "--start", "x", "--resume", "S1"])
 
     def test_max_phases(self):
         commits, log = self.run_plan(["commit"] * 5, "--max-phases", "3")

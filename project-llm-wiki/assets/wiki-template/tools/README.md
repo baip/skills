@@ -130,6 +130,8 @@ items. A (page, cause) in the ledger is never queued again.
   After a usage limit it waits for the reset (stopping if that is more than 6 hours away) and resumes the same session.
   It stops on anything else: no commit, uncommitted changes, an error, `--max-phases`, or `--stop`, which ends it after
   the current phase.
+  To begin a new batch the same way, add `--start "Ingest the documents in <folder>"`: only the first session gets that
+  request, and every later one gets "Continue ingestion".
   Add `--after-phase "qmd embed && qmd cleanup"` where qmd is set up: it runs after each committed phase, outside the
   agent's sandbox, which blocks the GPU that embedding needs. `qmd cleanup` then drops what no longer belongs to any
   page (embeddings of old page versions, records of deleted pages) and compacts the index, in seconds and without the
