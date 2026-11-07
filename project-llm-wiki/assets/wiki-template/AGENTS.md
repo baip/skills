@@ -315,6 +315,11 @@ tools/README.md.
   (integration), writes its findings to the cache folder and returns one line. Checks run in a context that holds no
   page content: their output goes to files and only summary lines are read. A failure goes to a fresh subagent with only
   the failing items. Every agent waits on a long command with the longest timeout available.
+- A document already *metadata* because it could not be read (missing, corrupt, password-protected, no converter) is not
+  batched again unless `docs.py changed` reports its file changed or the user asks, and filed documents leave the batch
+  queue. When no readable item remains, the state file says so and the next session stops without a commit. That is not
+  a phase, and it ends a headless loop on purpose (rule added 2026-11-07, after batches in the sibling chatgpt wiki sent
+  48 readers to originals already recorded as unavailable and kept already-read papers in their queue).
 - Integrators read the briefs and the pages they own, not the documents or the index.
 
 **Bounded reads**: readers read `tools/reader-brief.md` and their document, and skip §8.1; integrators read
