@@ -299,8 +299,10 @@ tools/README.md.
   run its next phase. The state file therefore names the phase, the start revision, the items and the cache paths. In a
   headless run (the skill's `scripts/continue_ingestion.py`, which starts each session with that phrase) nobody answers
   questions: decide by the state file and this schema, or end the phase with the question in the final message and
-  nothing left uncommitted (added 2026-11-04). Subagents write their full reports to the cache folder and return one
-  line.
+  nothing left uncommitted (added 2026-11-04). Every phase ends with a commit, also one that changed nothing (an
+  integration with nothing to integrate): its log entry says so, because the loop reads a phase without a commit as
+  stuck and stops (added 2026-11-07, after an empty phase stopped the loop in the sibling chatgpt wiki). Subagents write
+  their full reports to the cache folder and return one line.
 - The main agent's own context grows with every call too, so it holds only file lists, `--stat` summaries and subagents'
   one-line reports, never whole pages, diffs or check output. Validation runs outside it (next item). The main agent
   wakes only when a subagent finishes: on a completion notice where the agent gets one, otherwise after the longest wait
