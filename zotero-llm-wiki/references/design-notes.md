@@ -151,17 +151,18 @@ orchestrator's, whose ranges do not overlap.
 ## 7e. Validation becomes the cost (2026-11-04)
 
 With the orchestrator bounded, the validation subagents that took over its checks and diff reviews cost as much as it
-did: 6–13M tokens per batch in ten batches of the chatgpt wiki. Each held a whole batch's notes, records and reports, or
-every integrator's diff, then ran the build, checks, tests and search-index refresh on top of that load, so most of its
-calls ran above 120k tokens, and seven started as forks of the orchestrator's context. Validation is now split like
-integration: reviewers of about 3 papers or one integrator group each, in fresh contexts from a short brief, and checks
-in a context that holds no page content. The review standard is unchanged: every new or changed hand-written page is
-still reviewed in full, against its reader report or the source page it cites. A reviewer no longer sees other groups'
-diffs, but each still checks claims against the source pages, where a conflict between groups shows up as a mismatch.
+did: 6–13M tokens per batch in ten batches of the zotero-chatgpt wiki. Each held a whole batch's notes, records and
+reports, or every integrator's diff, then ran the build, checks, tests and search-index refresh on top of that load, so
+most of its calls ran above 120k tokens, and seven started as forks of the orchestrator's context. Validation is now
+split like integration: reviewers of about 3 papers or one integrator group each, in fresh contexts from a short brief,
+and checks in a context that holds no page content. The review standard is unchanged: every new or changed hand-written
+page is still reviewed in full, against its reader report or the source page it cites. A reviewer no longer sees other
+groups' diffs, but each still checks claims against the source pages, where a conflict between groups shows up as a
+mismatch.
 Expected saving, not yet measured: about half of validation, some 5M tokens per batch.
 
-Measured over the next 29 batches of the chatgpt wiki (batches 211–239, 2026-11-04 to 2026-11-06, mostly headless runs
-of `continue_ingestion.py`): validation fell from 9.8M to 4.6M tokens per batch (2.2–6.7M against 6.2–13.3M), with
+Measured over the next 29 batches of the zotero-chatgpt wiki (batches 211–239, 2026-11-04 to 2026-11-06, mostly headless
+runs of `continue_ingestion.py`): validation fell from 9.8M to 4.6M tokens per batch (2.2–6.7M against 6.2–13.3M), with
 reviewers at mean contexts of 31–56k. The orchestrator rose from 9.7M to 13.2M (36 % of a batch), because it now
 launches and waits on about 30 subagents per batch instead of about 20, at about 72k tokens per call (176 calls per
 batch against 140). A batch used 37.0M against 39.3M, a difference within the batch-to-batch spread (24.9–54.9M), and
@@ -169,11 +170,11 @@ readers and integrators were unchanged at about 19M. About half of the orchestra
 its context grows from a median of 23k tokens at the first call to 62k by the tenth, and that load is resent on each of
 about 85 calls per phase.
 
-The chatgpt wiki then gave its orchestrator a short brief (`docs/orchestrator-brief.md`) in place of the session
+The zotero-chatgpt wiki then gave its orchestrator a short brief (`docs/orchestrator-brief.md`) in place of the session
 protocol and the skill's references. Over the next five phases (2026-11-07) its context at the tenth call was 32–39k
 tokens against 56–70k, at the same 73–84 calls per phase, and it used 3.1–4.3M tokens per phase against 4.9–10.1M, about
 7M per batch against 13.2M. It was ported here the same day as `tools/orchestrator-brief.md`. This skill's AGENTS.md is
-the full schema, which both agents load on their own, so the brief cannot replace it, but the main wiki's first batch
+the full schema, which both agents load on their own, so the brief cannot replace it, but the zotero wiki's first batch
 under the current rules (39 papers, 2026-11-07) showed what else the orchestrator loaded: SKILL.md, a workspace-memory
 search, the whole state file and part of `tools/README.md`, about 150,000 characters, for mean contexts of 82–109k
 tokens per phase. The brief names only the state file's scalar fields and itself. Its effect here is not yet measured.

@@ -301,34 +301,34 @@ tools/README.md.
   questions: decide by the state file and this schema, or end the phase with the question in the final message and
   nothing left uncommitted (added 2026-11-04). Every phase ends with a commit, also one that changed nothing (an
   integration with nothing to integrate): its log entry says so, because the loop reads a phase without a commit as
-  stuck and stops (added 2026-11-07, after an empty phase stopped the loop in the sibling chatgpt wiki). Subagents write
-  their full reports to the cache folder and return one line.
+  stuck and stops (added 2026-11-07, after an empty phase stopped the loop in the sibling zotero-chatgpt wiki).
+  Subagents write their full reports to the cache folder and return one line.
 - The main agent's own context grows with every call too, so it holds only file lists, `--stat` summaries and subagents'
   one-line reports, never whole pages, diffs or check output. Validation runs outside it (next item). The main agent
   wakes only when a subagent finishes: on a completion notice where the agent gets one, otherwise after the longest wait
   available, never in short repeated checks. Batch size and the number of subagents at once go in the batch state file,
   so any agent that continues the batch uses them (rule added 2026-11-02).
-- Validation is bounded like integration (rule added 2026-11-04, after validation subagents in the sibling chatgpt wiki
-  used 6–13M tokens per batch, as much as the orchestrator, mostly at contexts over 120k: each held a whole batch's
-  pages and then ran the checks on top). Reviewers start fresh from `tools/validator-brief.md`, never from a copy of the
-  orchestrator's context. Each reviews at most about 3 documents' new pages (reading) or one integrator group's pages
-  (integration), writes its findings to the cache folder and returns one line. Checks run in a context that holds no
-  page content: their output goes to files and only summary lines are read. A failure goes to a fresh subagent with only
-  the failing items. Every agent waits on a long command with the longest timeout available.
+- Validation is bounded like integration (rule added 2026-11-04, after validation subagents in the sibling
+  zotero-chatgpt wiki used 6–13M tokens per batch, as much as the orchestrator, mostly at contexts over 120k: each held
+  a whole batch's pages and then ran the checks on top). Reviewers start fresh from `tools/validator-brief.md`, never
+  from a copy of the orchestrator's context. Each reviews at most about 3 documents' new pages (reading) or one
+  integrator group's pages (integration), writes its findings to the cache folder and returns one line. Checks run in a
+  context that holds no page content: their output goes to files and only summary lines are read. A failure goes to a
+  fresh subagent with only the failing items. Every agent waits on a long command with the longest timeout available.
 - A document already *metadata* because it could not be read (missing, corrupt, password-protected, no converter) is not
   batched again unless `docs.py changed` reports its file changed or the user asks, and filed documents leave the batch
   queue. When no readable item remains, the state file says so and the next session stops without a commit. That is not
-  a phase, and it ends a headless loop on purpose (rule added 2026-11-07, after batches in the sibling chatgpt wiki sent
-  48 readers to originals already recorded as unavailable and kept already-read papers in their queue).
+  a phase, and it ends a headless loop on purpose (rule added 2026-11-07, after batches in the sibling zotero-chatgpt
+  wiki sent 48 readers to originals already recorded as unavailable and kept already-read papers in their queue).
 - Integrators read the briefs and the pages they own, not the documents or the index.
 
 **Bounded reads**: readers read `tools/reader-brief.md` and their document, and skip §8.1; integrators read
 `tools/integrator-brief.md`, and validators `tools/validator-brief.md`. The orchestrator reads
 `tools/orchestrator-brief.md` instead of the session protocol (§8.1), `tools/README.md` and the skill's files (added
-2026-11-07, after the orchestrator of a 39-paper batch in the main wiki ran at mean contexts of 82–109k tokens, its
+2026-11-07, after the orchestrator of a 39-paper batch in the zotero wiki ran at mean contexts of 82–109k tokens, its
 startup having loaded SKILL.md, a memory search, the whole state file and part of `tools/README.md`, against 40–53k with
-such a brief in the sibling chatgpt wiki). Link candidates come from a search (about the top 15). Command output is
-bounded (`grep -l`, `| head`, `tools/search.py`). Batch queues, briefs and state live in a cache folder outside the
+such a brief in the sibling zotero-chatgpt wiki). Link candidates come from a search (about the top 15). Command output
+is bounded (`grep -l`, `| head`, `tools/search.py`). Batch queues, briefs and state live in a cache folder outside the
 wiki, deleted by the session that completes the batch. In a batch, the reviewers review the diff of hand-written pages.
 Check generated files with `git diff --stat`.
 
