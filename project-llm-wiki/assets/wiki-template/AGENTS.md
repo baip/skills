@@ -81,7 +81,7 @@ The **user** chooses which documents enter the wiki, directs emphasis, asks ques
 ├── analyses/     # filed answers, comparisons, writing-support notes, audits; assets/ holds charts the agent made
 └── tools/        # docs.py, review.py, catalog.py, wikilint.py, relink.py, search.py, split.py, wikimeta.py,
                   # test_tools.py, README.md, reader-brief.md, integrator-brief.md, validator-brief.md,
-                  # config.json (the raw root)
+                  # orchestrator-brief.md, config.json (the raw root)
 ```
 
 - No other top-level folders without a schema change. Flat folders, page names unique across folders.
@@ -323,10 +323,14 @@ tools/README.md.
 - Integrators read the briefs and the pages they own, not the documents or the index.
 
 **Bounded reads**: readers read `tools/reader-brief.md` and their document, and skip §8.1; integrators read
-`tools/integrator-brief.md`, and validators `tools/validator-brief.md`. Link candidates come from a search (about the
-top 15). Command output is bounded (`grep -l`, `| head`, `tools/search.py`). Batch queues, briefs and state live in a
-cache folder outside the wiki, deleted by the session that completes the batch. In a batch, the reviewers review the
-diff of hand-written pages. Check generated files with `git diff --stat`.
+`tools/integrator-brief.md`, and validators `tools/validator-brief.md`. The orchestrator reads
+`tools/orchestrator-brief.md` instead of the session protocol (§8.1), `tools/README.md` and the skill's files (added
+2026-11-07, after the orchestrator of a 39-paper batch in the main wiki ran at mean contexts of 82–109k tokens, its
+startup having loaded SKILL.md, a memory search, the whole state file and part of `tools/README.md`, against 40–53k with
+such a brief in the sibling chatgpt wiki). Link candidates come from a search (about the top 15). Command output is
+bounded (`grep -l`, `| head`, `tools/search.py`). Batch queues, briefs and state live in a cache folder outside the
+wiki, deleted by the session that completes the batch. In a batch, the reviewers review the diff of hand-written pages.
+Check generated files with `git diff --stat`.
 
 ### 8.3 Query, and help with writing
 
