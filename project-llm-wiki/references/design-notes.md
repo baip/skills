@@ -191,6 +191,14 @@ readers and integrators were unchanged at about 19M. About half of the orchestra
 its context grows from a median of 23k tokens at the first call to 62k by the tenth, and that load is resent on each of
 about 85 calls per phase.
 
+The chatgpt wiki then gave its orchestrator a short brief (`docs/orchestrator-brief.md`) in place of the session
+protocol and the skill's references. Over the next five phases (2026-11-07) its context at the tenth call was 32–39k
+tokens against 56–70k, at the same 73–84 calls per phase, and it used 3.1–4.3M tokens per phase against 4.9–10.1M, about
+7M per batch against 13.2M. The brief is not ported here yet: this skill's AGENTS.md is the full schema, which both
+agents load on their own, so only `tools/README.md` and the session-start reads could be skipped, and no orchestrator
+has run a batch here under the current rules. The same runs added one rule: every phase commits, even one that changed
+nothing, because the headless loop reads a phase without a commit as stuck.
+
 ## 4. Known limits
 
 - One raw root per wiki. Files elsewhere must be moved under it, or the schema extended.
