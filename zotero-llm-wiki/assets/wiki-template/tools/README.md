@@ -175,6 +175,10 @@ Lint checks the line format, outcome, basis length and links.
     a mean context of 108k. Each read 400–600 kB of notes, records, reports or diffs, then ran the build, checks, tests
     and search-index refresh on top, so half or more of its calls ran above 120k. Seven started as forks of the
     orchestrator at 63–82k. Split reviews of 13–17 calls cost 0.6–0.9M.
+  - After the change (batches 211–239, 29 batches): validation 4.6M tokens per batch (2.2–6.7M) against 9.8M, but the
+    orchestrator 13.2M against 9.7M, since it coordinates about 30 subagents per batch instead of about 20. A batch used
+    37.0M against 39.3M, within the spread (24.9–54.9M). About half of the orchestrator's tokens are its startup reading
+    (context 23k at the first call, 62k by the tenth).
 - **Bounded reads.** Give each reader `tools/reader-brief.md` plus its assignment (key, filename, cache folder, batch notes)
   and each integrator `tools/integrator-brief.md` plus its pages, briefs and sources. Readers take link candidates from a
   search for their paper, never a full list of pages; integrators read briefs and the pages they own. Keep batch
