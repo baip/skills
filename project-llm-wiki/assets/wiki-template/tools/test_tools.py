@@ -666,6 +666,29 @@ with tempfile.TemporaryDirectory() as tmp:
         revise_c1("A corrected claim ([[s1]] §2).")
         run(review.cmd_since, rev="HEAD", queue=True)
         check("since: a body edit queues the page's dependents (stepwise); t1's 'see [[c1]]' pointer is not one", queued() == ["c3"])
+        out = run(review.cmd_screen, rev="HEAD", max_lines=8)
+        check("screen: prints the cause's changed lines once, then each dependent with its citing lines",
+              out.count("+A corrected claim") == 1 and "[[c3]] cites it" in out and "[[c1]]" in out.split("[[c3]] cites it")[1]
+              and "1 open item(s) under 1 cause(s)" in out)
+        c3_cause = wikimeta.pending_parse()[0][0][2]
+        ledger_before = open(wikimeta.REVIEWED, encoding="utf-8").read() if os.path.exists(wikimeta.REVIEWED) else None
+        rf = os.path.join(tmp, "screened.tsv")
+        open(rf, "w", encoding="utf-8").write(f"# screening\nc3\t{c3_cause}\tnot-affected\tc3 cites c1 only as a pointer\n"
+                                              f"zz\t{c3_cause}\tnot-affected\tno such open item here\n")
+        out = run(review.cmd_resolve, file=rf)
+        check("resolve: a file of decisions resolves its items and names lines that matched nothing",
+              queued() == [] and "resolved 1 item(s) from 2 line(s)" in out and "zz" in out)
+        open(rf, "w", encoding="utf-8").write("c3\tsome-cause\tmaybe\tx\n")
+        try:
+            run(review.cmd_resolve, file=rf); bad_refused = False
+        except SystemExit:
+            bad_refused = True
+        check("resolve: an unknown outcome is refused before anything is resolved", bad_refused)
+        if ledger_before is None:
+            os.remove(wikimeta.REVIEWED)
+        else:
+            open(wikimeta.REVIEWED, "w", encoding="utf-8").write(ledger_before)
+        run(review.cmd_since, rev="HEAD", queue=True)
         clear_queue()
         revise_c1("Another corrected claim ([[s1]] §3).")
         run(review.cmd_since, rev="HEAD", queue=True)

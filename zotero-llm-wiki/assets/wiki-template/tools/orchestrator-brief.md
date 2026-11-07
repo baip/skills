@@ -30,7 +30,7 @@ about 80 times per phase, so read only what this brief names.
    or the agent's limit), the fixed vocabulary of planned slugs, cache paths and the next phase's instructions. The
    orchestrator's cost per phase is roughly fixed, so a request that fits one reading phase can be one batch.
 
-## Both phases
+## Every phase
 
 - Every subagent starts fresh, never as a fork of your context. Its prompt names its brief (`tools/reader-brief.md`,
   `tools/integrator-brief.md` or `tools/validator-brief.md`), its assignment (keys or pages, start revision, cache
@@ -44,8 +44,10 @@ about 80 times per phase, so read only what this brief names.
   (integration) each, and may start as soon as their files exist. Then one checks runner (same brief) runs `catalog.py
   --apply`, `review.py since <start revision> --queue`, `wikilint.py --since <start revision>`, `test_tools.py` when
   tools changed, and, where qmd is set up, `qmd update && qmd embed && qmd cleanup` (an embedding failure inside a
-  sandbox is a reported limit, not an error to repair). Failures and open review items go to a fresh subagent with only
-  those items, until none remain.
+  sandbox is a reported limit, not an error to repair). Failures go to a fresh subagent with only the failing items,
+  until none remain. Open review items go first to one screener (validator brief, role screener), then the items it
+  leaves open to resolvers (same brief), one cause and about 10 pages each, in waves. After a wave that corrected pages,
+  the checks runner runs `review.py since` again, until it queues nothing new.
 - **Commit.** Every phase ends with a commit, also one that changed nothing in the wiki: its log entry says so. Append
   one log entry without reading the log (`## [YYYY-MM-DD] ingest | <subject>` and 2–10 bullets, §10), stage the phase's
   paths by name (never `git add -A`) and commit with the entry's subject. Update the state file with a self-contained
@@ -79,8 +81,19 @@ about 80 times per phase, so read only what this brief names.
 1. You write the topic synthesis yourself (§8.2b), from the integrators' synthesis bullets in `<folder>/reports/` and
    the topic pages they concern. These are the only pages you read.
 2. After a substantial ingest, a claim audit (§8.5) of about 10 claims runs in fresh subagents.
-3. A reviewer for the topic pages, then the checks runner, until strict lint passes (§2.7). Commit with the batch's
-   report (§8.2 step 8), delete the batch folder and run `zot.py clean`. The batch is complete.
+3. A reviewer for the topic pages and the pages the audit corrected, then the checks runner, with `review.py since
+   <start revision>` without `--queue`. With no dependents to review, finish the batch here (propagation phase, step 3).
+   Otherwise commit, with the next phase set to propagation and its since revision set to this phase's start revision.
+
+## Propagation phase
+
+Propagating the synthesis's corrections runs in its own session, so it does not carry the synthesis context (rule added
+2026-11-07, after propagation inside a synthesis session at a mean context of 108k tokens took 12 % of a batch).
+
+1. The checks runner runs `review.py since <since revision> --queue` and reports the count of open items.
+2. The screener, then resolvers in waves, as above, until `review.py since` queues nothing new.
+3. The checks runner, until strict lint passes (§2.7). Commit with the batch's report (§8.2 step 8), delete the batch
+   folder and run `zot.py clean`. The batch is complete.
 
 ## When to open more
 

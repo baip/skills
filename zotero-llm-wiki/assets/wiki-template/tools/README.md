@@ -130,11 +130,11 @@ Lint checks the line format, outcome, basis length and links.
   than merging groups. Write each integrator's slice of the briefs (the claims aimed at its pages) to its own file in
   the cache folder, so it never greps all briefs. Launch a wave only with quota left for it: 9 integrators started just
   before a 5-hour limit used 1.6M tokens and edited nothing.
-- **One phase per orchestrator session.** The orchestrator ends its session after reading and after integration: commit
-  the checkpoint, write the next phase's instructions to the batch state file (phase, start revision, items, integrator
-  groups, cache paths), and stop, telling the user to start a new session with "Continue ingestion". The user never
-  writes a handoff prompt. With no batch folder under `~/.cache/llm-wiki/<wiki>/`, nothing is pending: ask what to
-  ingest.
+- **One phase per orchestrator session.** The orchestrator ends its session after reading, after integration, and after
+  synthesis, whose corrections are then propagated in a session of their own: commit the checkpoint, write the next
+  phase's instructions to the batch state file (phase, start revision, items, integrator groups, cache paths), and stop,
+  telling the user to start a new session with "Continue ingestion". The user never writes a handoff prompt. With no
+  batch folder under `~/.cache/llm-wiki/<wiki>/`, nothing is pending: ask what to ingest.
   To run phases back to back without anyone at the keyboard, run `python3
   ~/.claude/skills/zotero-llm-wiki/scripts/continue_ingestion.py <wiki> --agent codex|claude` in a terminal (not from an
   agent session). It starts a fresh headless session per phase with that prompt and goes on while each phase commits.
@@ -175,6 +175,13 @@ Lint checks the line format, outcome, basis length and links.
     errors, report judgment calls and run no checks.
   - Checks runner: the orchestrator itself or a small fresh subagent. It writes each check's output to `<cache>/checks/`
     and reads only the last lines. A failure goes to a fresh subagent with only the failing items.
+  - Screener and resolvers (rule added 2026-11-07): one screener reads `review.py screen <since revision>`, which prints
+    each cause's changed lines once and then each dependent's citing lines, resolves as *not-affected* the items whose
+    citing lines do not use the change, in one `review.py resolve` call, and leaves the rest open. Resolvers take one
+    cause and about 10 of the remaining items each. Measured before, in the zotero wiki's Mathematics batch
+    (2026-11-07): after the claim audit corrected two source pages, 239 items over three passes went to about 30 fresh
+    subagents, for 21.6M tokens (12 % of the batch), and 180 of them were not-affected. The screen of the first 189
+    items is about 21k tokens.
   - Measured before the change (zotero-chatgpt wiki, batches 199–210, 31 validators): 0.4–7.6M tokens each, 3.6M on
     average at a mean context of 108k. Each read 400–600 kB of notes, records, reports or diffs, then ran the build,
     checks, tests and search-index refresh on top, so half or more of its calls ran above 120k. Seven started as forks
@@ -314,9 +321,12 @@ They are binding. Each subsection is referenced from the AGENTS.md rule it detai
 
   Resolve each item with an outcome and its basis (`review.py done`): *corrected* (the page was changed), *unchanged*
   (it uses the revised content and still holds), or *not-affected* (it does not use the part that changed). The basis
-  names what was checked, such as the sentences that cite the changed page; a keyword search may choose what to read
-  but is not a basis. Read those citing sentences first (`review.py list --context`) and open the whole dependent page
-  only when they use the changed content, so each item costs about the same however large the wiki grows. Resolutions go to `reviewed.md` and are never re-queued. `--strict` lint fails while items are open.
+  names what was checked, such as the sentences that cite the changed page; a keyword search may choose what to read but
+  is not a basis. Read those citing sentences first (`review.py list --context`) and open the whole dependent page only
+  when they use the changed content, so each item costs about the same however large the wiki grows. In a batch, a
+  screener first clears, from `review.py screen` alone, the items whose citing lines do not use the changed lines, and
+  records them with one `review.py resolve`. Resolutions go to `reviewed.md` and are never re-queued. `--strict` lint
+  fails while items are open.
 
 ### Page templates (AGENTS.md §5)
 
