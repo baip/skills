@@ -182,6 +182,15 @@ hand-written page is still reviewed in full, against its reader report or the so
 sees other groups' diffs, but each still checks claims against the source pages, where a conflict between groups shows
 up as a mismatch. Expected saving, not yet measured: about half of validation, some 5M tokens per batch.
 
+Measured over the next 29 batches of the chatgpt wiki (batches 211–239, 2026-11-04 to 2026-11-06, mostly headless runs
+of `continue_ingestion.py`): validation fell from 9.8M to 4.6M tokens per batch (2.2–6.7M against 6.2–13.3M), with
+reviewers at mean contexts of 31–56k. The orchestrator rose from 9.7M to 13.2M (36 % of a batch), because it now
+launches and waits on about 30 subagents per batch instead of about 20, at about 72k tokens per call (176 calls per
+batch against 140). A batch used 37.0M against 39.3M, a difference within the batch-to-batch spread (24.9–54.9M), and
+readers and integrators were unchanged at about 19M. About half of the orchestrator's tokens are its startup reading:
+its context grows from a median of 23k tokens at the first call to 62k by the tenth, and that load is resent on each of
+about 85 calls per phase.
+
 ## 4. Known limits
 
 - One raw root per wiki. Files elsewhere must be moved under it, or the schema extended.
