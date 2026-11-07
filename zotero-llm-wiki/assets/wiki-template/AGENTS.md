@@ -267,6 +267,12 @@ integrators holding 25–40 pages each used half of a run's tokens):
   (integration), writes its findings to the cache folder and returns one line. Checks run in a context that holds no
   page content: their output goes to files and only summary lines are read. A failure goes to a fresh subagent with only
   the failing items. Every agent waits on a long command with the longest timeout available.
+- Check originals before assigning readers: `zot.py pdfpath KEY` for each item, one call and no reader. An item already
+  *metadata* for lack of a readable PDF is not batched again unless `zot.py changed` reports a PDF change or the user
+  asks, and filed items leave the batch queue. When no readable item remains, the state file says so and the next
+  session stops without a commit. That is not a phase, and it ends a headless loop on purpose (rule added 2026-11-07,
+  after batches in the sibling chatgpt wiki sent 48 readers to originals already recorded as unavailable and kept
+  already-read papers in their queue).
 - Integrators read the briefs and the pages they own, not PDFs or the index.
 
 **Bounded reads** (rules added 2026-11-01 so that the cost of ingesting a paper does not grow with the wiki):
