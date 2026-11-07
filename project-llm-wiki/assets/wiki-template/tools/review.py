@@ -31,6 +31,12 @@ Usage:
   review.py list [--context]                  open items, grouped by page; --context also prints, for each
                                               item, the lines of the page that cite the changed page (or its
                                               part notes), which is what a review reads first
+  review.py resolve FILE                      resolve many items at once, one per line:
+                                              PAGE<TAB>CAUSE<TAB>OUTCOME<TAB>BASIS
+  review.py screen REV [--max-lines N]        open items grouped by cause: each cause page's changed lines
+                                              since REV, printed once, then each dependent's citing lines; the
+                                              input of a screening pass that resolves dependents which do not
+                                              use the changed content before any page is opened
 
 Review a dependent by reading the sentences that cite the changed page (`list --context`), and open the whole
 page only when those sentences use the changed content; this keeps each review item's cost independent of page
@@ -219,6 +225,82 @@ def cmd_list(a):
         print("resolved so far: " + ", ".join(f"{v} {k}" for k, v in sorted(counts.items())))
 
 
+VIA = re.compile(r"uses \[\[([^\]]+)\]\], which quotes")
+PHRASE = re.compile(r'phrase "([^"]+)"')
+
+
+def changed_lines(page_path, rev, cap=30, width=320):
+    """Body lines removed (-) and added (+) in a page since git REV, at most `cap`."""
+    d = git("diff", "-U0", "--no-color", rev, "--", page_path)
+    out = [ln[:width] for ln in d.stdout.splitlines()
+           if ln[:1] in "+-" and not ln.startswith(("+++", "---")) and ln[1:].strip()]
+    return out[:cap] + ([f"... {len(out) - cap} more changed line(s): read the diff"] if len(out) > cap else [])
+
+
+def cmd_screen(a):
+    """Open items grouped by cause: the cause page's changed lines since REV once, then each dependent's citing lines."""
+    items, problems = wikimeta.pending_parse()
+    pages = wikimeta.load_pages()
+    by = {}
+    for page, note, cause in items:
+        by.setdefault(cause or "(no cause)", []).append((page, note or ""))
+    for cause in sorted(by):
+        m = CAUSE_PAGE.match(cause)
+        target = m.group(1) if m else None
+        print(f"== {cause}: {len(by[cause])} open item(s)")
+        if target in pages:
+            lines = changed_lines(pages[target][0]["path"], a.rev)
+            print(f"  [[{target}]] changed since {a.rev}:" if lines else f"  [[{target}]]: no change since {a.rev} (read the cause)")
+            for ln in lines:
+                print(f"    {ln}")
+        for page, note in sorted(by[cause]):
+            via, phrase = VIA.search(note), PHRASE.search(note)
+            if phrase and page in pages:
+                how = f'restates "{phrase.group(1)}"'
+                body = wikimeta.strip_code(wikimeta.synthesis_body(pages[page][0]["body"])).split("\n")
+                lines = [ln.strip()[:320] for ln in body if phrase.group(1).lower() in ln.lower()]
+            elif via:
+                how = f"via [[{via.group(1)}]]"
+                lines = citing_lines(pages, page, via.group(1)) + \
+                    [f"([[{via.group(1)}]]) " + ln for ln in citing_lines(pages, via.group(1), target)]
+            else:
+                how = "cites it"
+                lines = citing_lines(pages, page, target) if target else []
+            print(f"  [[{page}]] {how}")
+            for ln in (lines or ["(no citing line found: leave open)"])[:a.max_lines]:
+                print(f"      {ln}")
+    for p in problems:
+        print("PROBLEM", p)
+    print(f"{len(items)} open item(s) under {len(by)} cause(s)")
+
+
+def cmd_resolve(a):
+    """Resolve many items from a file, one per line: PAGE<TAB>CAUSE<TAB>OUTCOME<TAB>BASIS (a screening pass's output)."""
+    rows, bad = [], []
+    for i, line in enumerate(open(a.file, encoding="utf-8").read().splitlines(), 1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) != 4 or parts[2] not in wikimeta.OUTCOMES:
+            bad.append(f"line {i}: want PAGE<TAB>CAUSE<TAB>OUTCOME<TAB>BASIS with OUTCOME one of {', '.join(wikimeta.OUTCOMES)}")
+            continue
+        rows.append([p.strip() for p in parts])
+    if bad:
+        sys.exit("\n".join(bad[:20]))
+    n, missing = 0, []
+    for page, cause, outcome, basis in rows:
+        try:
+            k = wikimeta.resolve_reviews([page], cause, outcome, basis)
+        except ValueError as e:
+            sys.exit(f"{page} ({cause}): {e}")
+        n += k
+        if not k:
+            missing.append(f"{page} ({cause})")
+    print(f"resolved {n} item(s) from {len(rows)} line(s)")
+    if missing:
+        print(f"{len(missing)} line(s) matched no open item: " + ", ".join(missing[:20]))
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -230,6 +312,8 @@ def main():
     s = sub.add_parser("done"); s.add_argument("pages", nargs="+"); s.add_argument("--cause")
     s.add_argument("--outcome", required=True, choices=wikimeta.OUTCOMES); s.add_argument("--basis", required=True)
     s = sub.add_parser("list"); s.add_argument("--context", action="store_true")
+    s = sub.add_parser("resolve"); s.add_argument("file")
+    s = sub.add_parser("screen"); s.add_argument("rev"); s.add_argument("--max-lines", type=int, default=8)
     a = p.parse_args()
     globals()["cmd_" + a.cmd](a)
 

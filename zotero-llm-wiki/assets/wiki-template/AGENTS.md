@@ -244,14 +244,15 @@ integrators holding 25–40 pages each used half of a run's tokens):
   never merge groups to have fewer.
 - A limit on subagents (the user's, or the agent's) is a limit on how many run at once. Run the groups in waves within
   it.
-- The main agent works one phase per session (reading, integration, synthesis). At each boundary it commits the
-  checkpoint, writes the next phase's instructions to the batch state file and stops, telling the user to start a new
-  session with "Continue ingestion". That phrase is the whole prompt: find the batch state file in the cache folder and
-  run its next phase. The state file therefore names the phase, the start revision, the items and the cache paths (rule
-  added 2026-11-02). In a headless run (the skill's `scripts/continue_ingestion.py`, which starts each session with that
-  phrase, or the first one with the user's request given by `--start`) nobody answers questions: decide by the state
-  file and this schema, or end the phase with the question in the final message and nothing left uncommitted (added
-  2026-11-04). Every phase ends with a commit, also one that changed nothing (an integration with nothing to integrate):
+- The main agent works one phase per session (reading, integration, synthesis, and propagation of the synthesis's
+  corrections, a phase of its own since 2026-11-07). At each boundary it commits the checkpoint, writes the next phase's
+  instructions to the batch state file and stops, telling the user to start a new session with "Continue ingestion".
+  That phrase is the whole prompt: find the batch state file in the cache folder and run its next phase. The state file
+  therefore names the phase, the start revision, the items and the cache paths (rule added 2026-11-02). In a headless
+  run (the skill's `scripts/continue_ingestion.py`, which starts each session with that phrase, or the first one with
+  the user's request given by `--start`) nobody answers questions: decide by the state file and this schema, or end the
+  phase with the question in the final message and nothing left uncommitted (added 2026-11-04). Every phase ends with a
+  commit, also one that changed nothing (an integration with nothing to integrate):
   its log entry says so, because the loop reads a phase without a commit as stuck and stops (added 2026-11-07, after an
   empty phase stopped the loop in the sibling zotero-chatgpt wiki). Subagents write their full reports to the cache
   folder and return one line.

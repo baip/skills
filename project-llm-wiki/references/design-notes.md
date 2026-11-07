@@ -203,6 +203,12 @@ tokens per phase. The brief names only the state file's scalar fields and itself
 The same runs added one rule: every phase commits, even one that changed nothing, because the headless loop reads a
 phase without a commit as stuck.
 
+In the zotero wiki the brief roughly halved the orchestrator's startup load in reading and integration (context at the
+tenth call 36–41k tokens against 68–78k), but not in synthesis. Propagating a claim audit's corrections there took 12 %
+of a batch, 239 review items of which 180 were not-affected. Both templates therefore gained the same day a screener
+(`review.py screen`, then one `review.py resolve`) ahead of resolvers, and a propagation phase after synthesis in its
+own session. Details in the zotero-llm-wiki skill's design notes. Neither effect is measured here yet.
+
 ## 4. Known limits
 
 - One raw root per wiki. Files elsewhere must be moved under it, or the schema extended.

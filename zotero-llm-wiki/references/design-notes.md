@@ -177,9 +177,25 @@ tokens against 56–70k, at the same 73–84 calls per phase, and it used 3.1–
 the full schema, which both agents load on their own, so the brief cannot replace it, but the zotero wiki's first batch
 under the current rules (39 papers, 2026-11-07) showed what else the orchestrator loaded: SKILL.md, a workspace-memory
 search, the whole state file and part of `tools/README.md`, about 150,000 characters, for mean contexts of 82–109k
-tokens per phase. The brief names only the state file's scalar fields and itself. Its effect here is not yet measured.
+tokens per phase. The brief names only the state file's scalar fields and itself.
 The same runs added one rule: every phase commits, even one that changed nothing, because the headless loop reads a
 phase without a commit as stuck.
+
+Measured on the zotero wiki's next batch (Mathematics, 60 records of which 33 were read, 2026-11-07, against the
+39-paper batch the same morning): the orchestrator's context at its tenth call fell from 68–78k tokens to 36–41k, and
+its mean context from 89k to 53k in reading and from 82k to 63k in integration. The reading orchestrator used 7.1M
+tokens against 13.7M. The integration orchestrator used 10.6M against 9.2M, because it coordinated 31 subagents instead
+of 14. Synthesis was unchanged at a mean context of 108k (peak 162k), since the orchestrator writes the topic pages
+itself. The batch still used 174M tokens against 125M. Readers fell from 1.6M to 0.8–1.0M each (27 of the 60 records
+were abstract or metadata only), but propagating the claim audit's corrections to two source pages took 21.6M (12 % of
+the batch): 239 review items over three passes went to about 30 fresh subagents, inside the synthesis session, and 180
+of the items were not-affected, 41 unchanged and 18 corrected.
+
+Two changes followed the same day. A screener reads `review.py screen`, which prints each cause page's changed lines
+once and then each dependent's citing lines (about 21k tokens for that batch's first 189 items), and resolves the items
+whose citing lines do not use the change in one `review.py resolve` call, before resolvers open any page. The
+propagation of the synthesis's corrections became a phase of its own in a fresh session. Their effect is not yet
+measured.
 
 ## 8. Known limits
 
