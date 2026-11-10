@@ -79,6 +79,22 @@ esac
 '''
 
 
+class Locks(unittest.TestCase):
+    def test_one_loop_per_worktree(self):
+        with tempfile.TemporaryDirectory() as d:
+            main, other = Path(d, "main"), Path(d, "other"); main.mkdir()
+            for c in (["init", "-q"], ["config", "user.email", "t@t"], ["config", "user.name", "t"],
+                      ["commit", "-q", "--allow-empty", "-m", "start"], ["worktree", "add", "-q", "-b", "o", str(other)]):
+                subprocess.run(["git", "-C", str(main), *c], check=True)
+            a, b = ci.lock_path(main), ci.lock_path(other)
+            self.assertNotEqual(a, b)
+            ci.acquire_lock(a)
+            ci.acquire_lock(b)                     # a loop in another worktree of the same repository may start
+            with self.assertRaises(SystemExit):
+                ci.acquire_lock(a)                 # a second loop in the same worktree may not
+            a.unlink(); b.unlink()
+
+
 class OpenFiles(unittest.TestCase):
     def test_raises_soft_limit(self):
         import resource
