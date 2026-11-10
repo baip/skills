@@ -31,8 +31,8 @@ though the wiki has its uncommitted work. Codex's `codex resume` picker lists on
 
 The loop also stops when a phase leaves uncommitted changes (the schema asks the user before committing someone else's
 work), when the agent exits with an error, after --max-phases commits, or when `--stop` was run. A lock file in the
-repository's common git directory keeps two loops from running in worktrees of one repository at once. It does not see
-interactive sessions: do not work in the same repository while the loop runs.
+worktree's own git directory keeps two loops from running in one wiki at once. Wikis that are worktrees of one
+repository can each run a loop. The lock does not see interactive sessions: do not work in a wiki while its loop runs.
 
 The loop raises its open-file limit (a macOS terminal starts at 256) before starting the agent, which inherits it.
 
@@ -56,6 +56,12 @@ def git(wiki, *args):
 def git_path(wiki, flag):
     p = Path(git(wiki, "rev-parse", flag))
     return p if p.is_absolute() else (Path(wiki) / p).resolve()
+
+
+def lock_path(wiki):
+    """One loop per worktree: worktrees of one repository have their own branch, index and batch cache, so loops in
+    different wikis may run at once (the lock was shared until 2026-11-09)."""
+    return git_path(wiki, "--git-dir") / "continue-ingestion.lock"
 
 
 def notify(msg):
@@ -265,7 +271,7 @@ def main(argv=None):
         stop_file.unlink()
     if git(wiki, "status", "--porcelain") and not a.resume:
         sys.exit("the wiki has uncommitted changes: commit or resolve them first (AGENTS.md, pre-existing changes)")
-    lock = git_path(wiki, "--git-common-dir") / "continue-ingestion.lock"
+    lock = lock_path(wiki)
     acquire_lock(lock)
     nofile = raise_open_file_limit()
     log_dir = (a.log_dir or Path.home() / ".cache/llm-wiki/continue-ingestion" / wiki.name).expanduser()
