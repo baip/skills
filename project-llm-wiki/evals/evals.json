@@ -1,8 +1,0 @@
-{
-  "skill_name": "project-llm-wiki",
-  "evals": [
-    {"id": 1, "prompt": "I'm a mechanical engineering professor. My grant proposals and progress reports are under DOCS_DIR (Word, PowerPoint, some LaTeX). Set up an LLM wiki for them in WIKI_DIR (plain local folder) so I can reuse them when writing new proposals, then ingest DOCS_DIR/NSF-2021/ProjectDescription.docx so I can see what a page looks like. Don't wait for me to choose emphasis.", "expected_output": "A new wiki in WIKI_DIR with tools/config.json pointing at DOCS_DIR, tests and strict lint passing, one source page read from rendered pages (or source with images viewed), claims tagged with status, a project page, index and log updated, one commit; nothing written under DOCS_DIR.", "files": []},
-    {"id": 2, "prompt": "set up a proposal-writing wiki over my ~/Documents/grants folder in WIKI_DIR, which syncs with OneDrive. I'm a DOE-funded battery chemist. Don't read anything yet, just tell me what to do next.", "expected_output": "A new wiki with the git directory outside the synced folder, the raw root set, the audience sentence about battery chemistry, tests and lint passing, no source pages, docs.py status reported, and next steps asking which documents to ingest first.", "files": []},
-    {"id": 3, "prompt": "Ingest everything in DOCS_DIR/Reviews into my project wiki at WIKI_DIR.", "expected_output": "The agent lists the folder, recognizes reviews the user wrote of other people's proposals as confidential to others, and asks before reading any of them, ingesting nothing unconfirmed.", "files": []}
-  ]
-}
