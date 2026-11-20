@@ -194,8 +194,36 @@ of the items were not-affected, 41 unchanged and 18 corrected.
 Two changes followed the same day. A screener reads `review.py screen`, which prints each cause page's changed lines
 once and then each dependent's citing lines (about 21k tokens for that batch's first 189 items), and resolves the items
 whose citing lines do not use the change in one `review.py resolve` call, before resolvers open any page. The
-propagation of the synthesis's corrections became a phase of its own in a fresh session. Their effect is not yet
-measured.
+propagation of the synthesis's corrections became a phase of its own in a fresh session. Their effect is
+measured in section 7f.
+
+## 7f. Cost per paper at scale, and across agents (2026-11-10 to 2026-11-20)
+
+From 2026-11-10 the zotero wiki ingested the whole personal library in 40-paper batches, headless through
+`continue_ingestion.py`: with Codex (gpt-6.1-sol), then with Claude Code (Opus 5.5) from 2026-11-12 to 2026-11-18, then
+with Codex again. Counts are input plus output tokens from each agent's local logs (Claude transcripts deduplicated by
+message ID), matched to the phase commits. The two agents use different tokenizers, so ratios between them are
+approximate.
+
+- Codex, batches 0016–0042 (27 batches, 2026-11-18 to 2026-11-20): 155M tokens per batch (median 143M, range 98–216M),
+  about 3.9M per paper, and 141M (3.5M per paper) over the last 19. Reading took 89M (54–162M, following the papers'
+  length), integration 36M, synthesis 18M, propagation 8M (5–16M), and batch selection and queue reconciliation 4–5M
+  each. The orchestrator used 25 % of the tokens. Per paper this is somewhat below the 8-paper batches of section 7e
+  (about 4.6M): a larger batch spreads the orchestrator's fixed cost per phase.
+- The screener and the separate propagation phase (end of section 7e) kept propagation at 5–16M per batch, against 21.6M
+  for one claim audit's corrections in the Mathematics batch.
+- Claude Code: batch 0014, through every phase, used 359M, about 9.0M per paper: reading 180M, integration 142M (its
+  session also answered an unrelated question), the later phases 36M. Batch 0013's integration, synthesis and
+  propagation used 99.5M, against a Codex mean of 65M for the same phases, while batch 0015's reading used 97M against
+  89M. The difference lies in integration and the phases after it, not in reading. The first Claude batch (Force Fields,
+  about 45 papers, 2026-11-09) had used 376M, 206M of it in integration.
+- Under its 5-hour usage limit a Claude batch took 2–3 days, its phases waiting for resets. A Codex batch took a median
+  of 1.4 hours (0.9–3.6, one of 8 hours across a pause).
+- Remainder batches cost more per paper. On 2026-11-11 Codex batches of 7, 2, 1 and 2 papers used 6.9–14.4M per paper,
+  since the four phases cost about 12–14M whatever the batch size: 12 papers for about 106M, against about 43M at the
+  full-batch rate. Folding a remainder into the next batch would avoid this. It is not yet a rule.
+- On Codex, one weekly percentage point held about 36–39M tokens (2026-11-11, two accounts), so a 40-paper batch is
+  3.5–4.5 points of a week.
 
 ## 8. Known limits
 

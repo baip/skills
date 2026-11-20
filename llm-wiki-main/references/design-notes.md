@@ -209,6 +209,11 @@ of a batch, 239 review items of which 180 were not-affected. Both templates ther
 (`review.py screen`, then one `review.py resolve`) ahead of resolvers, and a propagation phase after synthesis in its
 own session. Details in the llm-wiki-zotero skill's design notes. Neither effect is measured here yet.
 
+At scale (2026-11-10 to 2026-11-20, 40-paper batches) the zotero wiki used about 3.5–3.9M tokens per paper on Codex
+(gpt-6.1-sol), propagation stayed at 5–16M per batch after the screener, and Claude Code (Opus 5.5) used about 9M per
+paper in its one batch through every phase, the difference being in integration and the phases after it. Details in the
+llm-wiki-zotero skill's design notes, section 7f.
+
 ## 4. Known limits
 
 - One raw root per wiki. Files elsewhere must be moved under it, or the schema extended.
