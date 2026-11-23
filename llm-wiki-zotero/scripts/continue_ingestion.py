@@ -4,6 +4,7 @@
   python3 continue_ingestion.py WIKI --agent codex|claude [--max-phases N] [--max-wait-hours H] [--after-phase CMD]
   python3 continue_ingestion.py WIKI --agent codex --start "Ingest the Zotero collection Mathematics"
   python3 continue_ingestion.py WIKI --agent codex --resume SESSION   # continue a session that stopped mid-phase
+  python3 continue_ingestion.py WIKI --continue    # resume the loop's last session that did not commit its phase
   python3 continue_ingestion.py WIKI --stop        # end the loop after the current phase
 
 Each run starts a fresh headless session (`codex exec`, `claude -p`) with the prompt "Continue ingestion" in WIKI. The
@@ -26,7 +27,8 @@ A command that leaves uncommitted changes stops it.
 "Out of credits" is waited on like a usage limit when Codex's readings show a full window (a team plan without extra
 credits reports a full 5-hour window that way), and stops the loop otherwise. When a run stops with work uncommitted, the stop message names the
 session: fix the cause (switch account, add credits), then rerun with --resume SESSION, which continues that session even
-though the wiki has its uncommitted work. Codex's `codex resume` picker lists only interactive sessions, but
+though the wiki has its uncommitted work. --continue finds that session in loop.log: the newest run with no "phase
+committed" after it. It takes the agent from the same log line, so --agent may be left out. Codex's `codex resume` picker lists only interactive sessions, but
 `codex resume SESSION` also opens one the loop started.
 
 The loop also stops when a phase leaves uncommitted changes (the schema asks the user before committing someone else's
@@ -47,6 +49,9 @@ PROMPT = "Continue ingestion"
 CODEX_APP = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
 NO_CREDITS = re.compile(r"out of credits|add credits|insufficient (?:credits|quota)|billing", re.I)
 LIMIT_WORDS = re.compile(r"usage limit|rate limit|limit reached|hit your limit|limit.{0,40}reset", re.I)
+RUN_LINE = re.compile(r"^(\S+) run \d+: .*\((codex|claude|custom)[,)]")
+SESSION_LINE = re.compile(r"^(\S+) session (\S+)$")
+COMMIT_LINE = re.compile(r"^\S+ phase committed: ")
 
 
 def git(wiki, *args):
@@ -193,6 +198,30 @@ def parse_output(agent, out):
     return session, final, " | ".join(x for x in errors if x)
 
 
+def last_incomplete(log_file):
+    """(session, agent, start time) of the newest session in loop.log that did not commit its phase, or None.
+
+    A session counts until a "phase committed" line follows it. Lines that --after-phase commands wrote to the log
+    match none of the patterns.
+    """
+    found, agent = None, None
+    try:
+        lines = Path(log_file).read_text(errors="replace").splitlines()
+    except FileNotFoundError:
+        return None
+    for line in lines:
+        m = RUN_LINE.match(line)
+        if m:
+            agent = m.group(2)
+            continue
+        m = SESSION_LINE.match(line)
+        if m:
+            found = (m.group(2), agent, m.group(1))
+        elif COMMIT_LINE.match(line):
+            found = None
+    return found
+
+
 # ---- loop -----------------------------------------------------------------------------------------------------
 
 def acquire_lock(path):
@@ -245,7 +274,8 @@ def sleep_until(epoch, stop_file):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("wiki", type=Path)
-    ap.add_argument("--agent", choices=["codex", "claude", "custom"], default="codex")
+    ap.add_argument("--agent", choices=["codex", "claude", "custom"],
+                    help="default: codex, or with --continue the agent of the session it resumes")
     ap.add_argument("--max-phases", type=int, default=20, help="stop after this many committed phases")
     ap.add_argument("--max-wait-hours", type=float, default=6, help="stop instead of waiting longer for a reset")
     ap.add_argument("--fallback-wait-hours", type=float, default=5, help="wait when a limit's reset time is unknown")
@@ -257,11 +287,16 @@ def main(argv=None):
     ap.add_argument("--after-phase", action="append", default=[], metavar="CMD",
                     help="shell command to run in the wiki after each committed phase (repeatable)")
     ap.add_argument("--resume", metavar="SESSION", help="start by resuming this session (allowed on a dirty wiki)")
+    ap.add_argument("--continue", dest="resume_last", action="store_true",
+                    help="start by resuming the loop's last session that did not commit its phase (as --resume)")
     ap.add_argument("--stop", action="store_true", help="ask a running loop to stop after its current phase")
     a = ap.parse_args(argv)
-    if a.start and a.resume:
-        ap.error("--start begins a new session and cannot be combined with --resume")
+    if a.start and (a.resume or a.resume_last):
+        ap.error("--start begins a new session and cannot be combined with --resume or --continue")
+    if a.resume and a.resume_last:
+        ap.error("--resume names the session and --continue finds it: give one")
     wiki = a.wiki.expanduser().resolve()
+    log_dir = (a.log_dir or Path.home() / ".cache/llm-wiki/continue-ingestion" / wiki.name).expanduser()
     stop_file = git_path(wiki, "--git-dir") / "continue-ingestion.stop"
     if a.stop:
         stop_file.write_text(dt.datetime.now().isoformat())
@@ -269,12 +304,21 @@ def main(argv=None):
         return 0
     if stop_file.exists():
         stop_file.unlink()
+    if a.resume_last:
+        found = last_incomplete(log_dir / "loop.log")
+        if not found:
+            sys.exit(f"nothing to continue: every session in {log_dir / 'loop.log'} committed its phase")
+        a.resume, agent, started = found
+        if a.agent and agent and a.agent != agent:
+            sys.exit(f"session {a.resume} ({started}) ran with --agent {agent}, not {a.agent}")
+        a.agent = a.agent or agent
+        print(f"continuing session {a.resume} ({a.agent or 'codex'}, started {started})", flush=True)
+    a.agent = a.agent or "codex"
     if git(wiki, "status", "--porcelain") and not a.resume:
         sys.exit("the wiki has uncommitted changes: commit or resolve them first (AGENTS.md, pre-existing changes)")
     lock = lock_path(wiki)
     acquire_lock(lock)
     nofile = raise_open_file_limit()
-    log_dir = (a.log_dir or Path.home() / ".cache/llm-wiki/continue-ingestion" / wiki.name).expanduser()
     log_dir.mkdir(parents=True, exist_ok=True)
 
     def log(msg):
@@ -381,7 +425,7 @@ def main(argv=None):
     finally:
         lock.unlink(missing_ok=True)
     if last_session and a.agent != "custom" and git(wiki, "status", "--porcelain"):
-        reason += f". Uncommitted work belongs to session {last_session}: continue with --resume {last_session}"
+        reason += f". Uncommitted work belongs to session {last_session}: continue with --continue or --resume {last_session}"
     log(f"stopped: {reason}")
     notify(f"{wiki.name}: stopped after {phases} phases. {reason}")
     return 0

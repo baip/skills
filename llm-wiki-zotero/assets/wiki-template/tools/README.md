@@ -151,7 +151,7 @@ Lint checks the line format, outcome, basis length and links.
   page (embeddings of old page versions, records of deleted pages) and compacts the index, in seconds and without the
   GPU.
   After a stop that leaves uncommitted work, such as exhausted credits, fix the cause and rerun with `--resume
-  <session>`, which the stop message names.
+  <session>`, which the stop message names, or with `--continue`, which finds that session in the loop's log.
   Subagents write their full reports to `<cache>/reports/` and return one line, which keeps the orchestrator's context
   small (measured 2026-11-02: one session through all phases reached 300k tokens per call, 2.7M tokens).
 - **A small orchestrator context** (AGENTS.md §8.2b). These rules hold for any agent; only the mechanics differ.

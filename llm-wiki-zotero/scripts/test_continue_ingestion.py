@@ -79,6 +79,33 @@ esac
 '''
 
 
+LOG = """2026-11-20T10:00:00 run 1: new session (codex, open-file limit 61440)
+2026-11-20T10:00:01 session A1
+2026-11-20T11:00:00 phase committed: abc1234 Read batch 7
+\u2713 Done! Embedded 453 chunks from 44 documents in 22s
+2026-11-20T11:00:30 after-phase 'qmd embed': ok
+2026-11-20T11:00:31 run 2: new session (claude, open-file limit 61440)
+2026-11-20T11:00:31 session B2
+2026-11-20T12:00:00 usage limit: waiting until Fri 13:00, then resuming
+2026-11-20T13:00:00 run 3: resume B2 (claude, open-file limit 61440)
+2026-11-20T13:00:00 session B2
+2026-11-20T13:30:00 stopped: uncommitted changes after run 3 (4 paths). Uncommitted work belongs to session B2
+"""
+
+
+class LastIncomplete(unittest.TestCase):
+    def test_finds_newest_uncommitted_session(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d, "loop.log")
+            self.assertIsNone(ci.last_incomplete(f))                  # no log yet
+            f.write_text(LOG)
+            self.assertEqual(ci.last_incomplete(f), ("B2", "claude", "2026-11-20T13:00:00"))
+            f.write_text(LOG + "2026-11-20T14:00:00 phase committed: def5678 Integrate batch 7\n")
+            self.assertIsNone(ci.last_incomplete(f))
+            f.write_text(LOG.split("2026-11-20T11:00:31")[0])
+            self.assertIsNone(ci.last_incomplete(f))
+
+
 class Locks(unittest.TestCase):
     def test_one_loop_per_worktree(self):
         with tempfile.TemporaryDirectory() as d:
@@ -107,7 +134,7 @@ class OpenFiles(unittest.TestCase):
 
 
 class Loop(unittest.TestCase):
-    def run_plan(self, plan, *extra):
+    def run_plan(self, plan, *extra, seed_log=None):
         with tempfile.TemporaryDirectory() as d:
             wiki, aux = Path(d, "wiki"), Path(d, "aux"); wiki.mkdir(); aux.mkdir()
             for c in (["init", "-q"], ["config", "user.email", "t@t"], ["config", "user.name", "t"],
@@ -117,11 +144,14 @@ class Loop(unittest.TestCase):
             if plan and plan[0] == "dirty-start":
                 (wiki / "pending.md").write_text("x"); plan = plan[1:]
             (aux / "plan").write_text("\n".join(plan) + "\n")
+            if seed_log:
+                (aux / "log").mkdir(); (aux / "log/loop.log").write_text(seed_log)
             env = {"CONTINUE_INGESTION_CMD": str(aux / "agent.sh"), "PLAN": str(aux / "plan"),
                    "STATE": str(aux / "state"), "CONTINUE_INGESTION_QUIET": "1"}
             old = {k: os.environ.get(k) for k in env}; os.environ.update(env)
             try:
-                ci.main([str(wiki), "--agent", "custom", "--reset-margin", "0", "--log-dir", str(aux / "log"), *extra])
+                agent = [] if "--continue" in extra else ["--agent", "custom"]
+                ci.main([str(wiki), *agent, "--reset-margin", "0", "--log-dir", str(aux / "log"), *extra])
             finally:
                 for k, v in old.items():
                     os.environ.pop(k) if v is None else os.environ.__setitem__(k, v)
@@ -172,6 +202,22 @@ class Loop(unittest.TestCase):
     def test_resume_allows_dirty_start(self):
         commits, log = self.run_plan(["dirty-start", "commit", "idle"], "--resume", "S1")
         self.assertEqual(commits, 1)
+
+    def test_continue_resumes_last_session(self):
+        seed = LOG.replace("(claude,", "(custom,")
+        commits, log = self.run_plan(["dirty-start", "commit", "idle"], "--continue", seed_log=seed)
+        self.assertEqual(commits, 1)
+        self.assertIn("run 1: resume B2 (custom", log.split("stopped: uncommitted")[1])
+
+    def test_continue_checks_agent_and_log(self):
+        with self.assertRaises(SystemExit) as e:
+            self.run_plan(["commit"], "--continue", "--agent", "codex", seed_log=LOG)
+        self.assertIn("ran with --agent claude", str(e.exception))
+        with self.assertRaises(SystemExit) as e:
+            self.run_plan(["commit"], "--continue", seed_log=LOG.split("2026-11-20T11:00:31")[0])
+        self.assertIn("nothing to continue", str(e.exception))
+        with self.assertRaises(SystemExit):
+            ci.main([".", "--continue", "--resume", "S1"])
 
     def test_ctrl_c_logs_session(self):
         commits, log = self.run_plan(["commit", "interrupt", "commit"])

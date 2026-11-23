@@ -141,7 +141,7 @@ items. A (page, cause) in the ledger is never queued again.
   page (embeddings of old page versions, records of deleted pages) and compacts the index, in seconds and without the
   GPU.
   After a stop that leaves uncommitted work, such as exhausted credits, fix the cause and rerun with `--resume
-  <session>`, which the stop message names.
+  <session>`, which the stop message names, or with `--continue`, which finds that session in the loop's log.
 - **A small orchestrator context** (AGENTS.md §8.2b). These rules hold for any agent, and only the mechanics differ.
   - Read file lists, `git diff --stat` and one-line reports, never whole pages, diffs or check output. Reviewers
     and a checks runner validate the phase (next item) and return one line each.
