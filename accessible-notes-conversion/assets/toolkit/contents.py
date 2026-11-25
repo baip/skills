@@ -152,8 +152,10 @@ def discrepancies():
     missing = sorted(p for p in listed if not (HERE / p).exists())
 
     # A document left at the top of the project, rather than in src/, is
-    # reported too, so a stray copy cannot shadow the real one.
-    NOT_DOCUMENTS = {"CONVENTIONS.md", "BUILD.md", "README.md"}
+    # reported too, so a stray copy cannot shadow the real one. The project's
+    # own instructions, for people and for coding agents, are not documents.
+    NOT_DOCUMENTS = {"CONVENTIONS.md", "BUILD.md", "README.md", "AGENTS.md",
+                     "CLAUDE.md"}
     on_disk = {p.name for p in HERE.glob("*.md") if p.name not in NOT_DOCUMENTS}
     on_disk |= {"%s/%s" % (SRC, p.name) for p in (HERE / SRC).glob("*.md")}
     for folder in sorted(HERE.glob("[0-9][0-9][0-9][0-9]")):
